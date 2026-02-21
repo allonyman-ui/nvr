@@ -91,8 +91,18 @@ export default function CameraPlayer({ streamUrl, snapshotUrl, label, onExpand }
       if (destroyed || !videoRef.current) return;
       const vid = videoRef.current;
 
+      // Only mark 'live' when video frames are actually rendering, not just
+      // when the manifest is parsed — this prevents the black-screen "live" state.
+      function onPlaying() {
+        if (!destroyed) setStatus('live');
+      }
+      vid.addEventListener('playing', onPlaying, { once: true });
+
       const Hls = (await import('hls.js')).default;
-      if (destroyed) return;
+      if (destroyed) {
+        vid.removeEventListener('playing', onPlaying);
+        return;
+      }
 
       if (Hls.isSupported()) {
         hls = new Hls({
@@ -100,18 +110,22 @@ export default function CameraPlayer({ streamUrl, snapshotUrl, label, onExpand }
           liveMaxLatencyDurationCount: 6,
           lowLatencyMode: true,
           maxBufferLength: 10,
+          // Ensure CORS requests don't send credentials so they work with origin: "*"
+          xhrSetup: (xhr: XMLHttpRequest) => {
+            xhr.withCredentials = false;
+          },
         });
         hls.loadSource(streamUrl);
         hls.attachMedia(vid);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (destroyed) return;
-          setStatus('live');
           vid.play().catch(() => {});
         });
 
         hls.on(Hls.Events.ERROR, (_: unknown, data: { fatal: boolean }) => {
           if (!data.fatal || destroyed) return;
+          vid.removeEventListener('playing', onPlaying);
           hls?.destroy();
           hls = null;
           if (retryCount < MAX_RETRIES) {
@@ -125,11 +139,9 @@ export default function CameraPlayer({ streamUrl, snapshotUrl, label, onExpand }
       } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari native HLS
         vid.src = streamUrl;
-        vid.oncanplay = () => {
-          if (!destroyed) setStatus('live');
-        };
         vid.onerror = () => {
           if (destroyed) return;
+          vid.removeEventListener('playing', onPlaying);
           if (retryCount < MAX_RETRIES) {
             retryCount += 1;
             setStatus('error');
@@ -182,6 +194,7 @@ export default function CameraPlayer({ streamUrl, snapshotUrl, label, onExpand }
       <video
         ref={videoRef}
         className="w-full h-full object-cover"
+        crossOrigin="anonymous"
         muted
         playsInline
         autoPlay
