@@ -106,10 +106,19 @@ export default function CameraPlayer({ streamUrl, snapshotUrl, label, onExpand }
 
       if (Hls.isSupported()) {
         hls = new Hls({
-          liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 6,
-          lowLatencyMode: true,
-          maxBufferLength: 10,
+          // go2rtc does not support LL-HLS — disable low-latency mode
+          lowLatencyMode: false,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          maxBufferLength: 30,
+          // Give ffmpeg time to produce the first segment
+          manifestLoadingTimeOut: 20000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 20000,
+          levelLoadingMaxRetry: 6,
+          fragLoadingTimeOut: 20000,
+          fragLoadingMaxRetry: 6,
+          fragLoadingRetryDelay: 1000,
           // Ensure CORS requests don't send credentials so they work with origin: "*"
           xhrSetup: (xhr: XMLHttpRequest) => {
             xhr.withCredentials = false;
