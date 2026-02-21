@@ -1,0 +1,20 @@
+# go2rtc configuration — 6 Dahua IP cameras
+# Each camera is its own device on the LAN (channel=1 for all).
+# subtype=1 → sub-stream (H.264, required for Google Home / Chromecast compatibility).
+# subtype=0 is the main stream but uses H.265 which Chromecast cannot decode.
+# ---------------------------------------------------------------
+
+streams:
+  deck_nosound:  rtsp://admin:Mobile99@192.168.1.53:554/cam/realmonitor?channel=1&subtype=1
+  edna_mike:     rtsp://admin:Mobile99@192.168.1.54:554/cam/realmonitor?channel=1&subtype=1
+  bikes:         rtsp://admin:Mobile99@192.168.1.51:554/cam/realmonitor?channel=1&subtype=1
+  gina:          rtsp://admin:admin1234@192.168.1.55:554/cam/realmonitor?channel=1&subtype=1
+  entrance:      rtsp://admin:Mobile99@192.168.1.50:554/cam/realmonitor?channel=1&subtype=1
+  deck_sound:    rtsp://admin:Mobile99@192.168.1.52:554/cam/realmonitor?channel=1&subtype=1
+
+# Listen on all interfaces
+api:
+  listen: ":1984"
+
+log:
+  level: info

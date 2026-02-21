@@ -1,0 +1,63 @@
+# Run `bash setup.sh <hostname>` ONCE first to create the named Cloudflare
+# Tunnel and generate cloudflared/credentials.json + cloudflared/config.yml.
+# Then just:  docker compose up -d
+# Everything restarts automatically on reboot and the URL never changes.
+#
+# NOTE (macOS): network_mode:host is not supported on Docker Desktop for Mac.
+# All containers share a bridge network — nginx routes by path to go2rtc or
+# smart-home-api, cloudflared forwards everything to nginx.
+
+services:
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: go2rtc
+    restart: always
+    networks:
+      - nvr
+    ports:
+      - "1984:1984"          # expose so you can verify at http://localhost:1984
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    environment:
+      - GO2RTC_CONFIG=/config/go2rtc.yaml
+
+  smart-home-api:
+    build: ./smart-home-api
+    container_name: smart-home-api
+    restart: always
+    networks:
+      - nvr
+    env_file:
+      - .env
+    environment:
+      - GO2RTC_BASE_URL=https://${NVR_HOSTNAME:-nvr.allonys.com}
+
+  nginx:
+    image: nginx:alpine
+    container_name: nvr-nginx
+    restart: always
+    networks:
+      - nvr
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - go2rtc
+      - smart-home-api
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    networks:
+      - nvr
+    volumes:
+      # Both files are written by setup.sh — do NOT edit manually
+      - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+    command: tunnel --config /etc/cloudflared/config.yml --no-autoupdate run
+    depends_on:
+      - nginx
+
+networks:
+  nvr:
+    driver: bridge
