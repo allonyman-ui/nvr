@@ -296,16 +296,17 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="hidden md:inline">People</span>
           </button>
 
-          {/* Activity Summary (full page) */}
+          {/* Activity Summary (full page) — primary CTA */}
           <button
             onClick={() => router.push('/summary')}
-            title="12-hour activity summary"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
-                       font-medium transition-all border text-white/30 hover:text-white/70
-                       border-transparent hover:bg-white/8 hover:border-white/10"
+            title="Open 12-hour activity log"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]
+                       font-semibold transition-all
+                       bg-green-600/25 border border-green-500/40 text-green-400
+                       hover:bg-green-600/40 hover:border-green-400/60 hover:text-green-300"
           >
             <IconActivity />
-            <span className="hidden lg:inline">Summary</span>
+            <span>Activity Log</span>
           </button>
 
           {/* Separator */}
