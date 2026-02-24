@@ -60,12 +60,39 @@ http {
 
     # Everything else → go2rtc (streams, dashboard)
     location / {
+      # Handle CORS preflight locally — full headers, no upstream contact
+      if ($request_method = 'OPTIONS') {
+        add_header 'Access-Control-Allow-Origin' '*';
+        add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS';
+        add_header 'Access-Control-Allow-Headers' 'Range, Authorization';
+        add_header 'Access-Control-Max-Age' 1728000;
+        add_header 'Content-Length' 0;
+        return 204;
+      }
+
       proxy_pass http://go2rtc:1984;
       proxy_set_header Host $host;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_http_version 1.1;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection "upgrade";
+
+      # Strip any CORS headers that go2rtc may emit so nginx is the sole source.
+      # NOTE: Access-Control-Allow-Origin is intentionally NOT re-added below.
+      # Cloudflare's "Modify Response Header" Transform Rule already injects it
+      # once on every 2xx response. Adding it here too produces two
+      # Access-Control-Allow-Origin values, which browsers reject outright —
+      # that is the root cause of the black-screen / stream-unavailable error.
+      proxy_hide_header Access-Control-Allow-Origin;
+      proxy_hide_header Access-Control-Allow-Methods;
+      proxy_hide_header Access-Control-Allow-Headers;
+      proxy_hide_header Access-Control-Expose-Headers;
+
+      # These supplementary CORS headers are still required for HLS range
+      # requests and are not emitted by the Cloudflare Transform Rule.
+      add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;
+      add_header 'Access-Control-Allow-Headers' 'Range' always;
+      add_header 'Access-Control-Expose-Headers' 'Content-Length, Content-Range' always;
     }
   }
 }
