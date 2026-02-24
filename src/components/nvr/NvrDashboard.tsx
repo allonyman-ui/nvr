@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import CameraPlayer from './CameraPlayer';
+import CameraWatchLog from './CameraWatchLog';
 
 interface Camera {
   id: string;
@@ -89,6 +90,7 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
   const [visible, setVisible] = useState<Set<string>>(new Set(allIds));
   const [layout, setLayout] = useState<Layout>('auto');
   const [focused, setFocused] = useState<Camera | null>(null);
+  const [watchOpen, setWatchOpen] = useState(false);
 
   const visibleCameras = cameras.filter((c) => visible.has(c.id));
   const [cols, maxCams] = resolveLayout(layout, visibleCameras.length);
@@ -182,8 +184,25 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
           ))}
         </div>
 
-        {/* Right: clock + logout */}
+        {/* Right: AI watch + clock + logout */}
         <div className="flex items-center gap-3 flex-none">
+          <button
+            onClick={() => setWatchOpen((o) => !o)}
+            title="AI Activity Log"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px]
+                        font-medium transition-all border ${
+              watchOpen
+                ? 'bg-blue-600/20 text-blue-400 border-blue-500/40'
+                : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
+            }`}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" fill={watchOpen ? 'currentColor' : 'none'} />
+            </svg>
+            <span className="hidden sm:inline">AI Watch</span>
+          </button>
           <span className="text-[11px] text-white/30 font-mono tabular-nums hidden md:block">
             {time}
           </span>
@@ -252,6 +271,9 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
           </div>
         )}
       </main>
+
+      {/* ── AI Watch Log panel ── */}
+      <CameraWatchLog open={watchOpen} onClose={() => setWatchOpen(false)} />
 
       {/* ── Fullscreen overlay ── */}
       {focused && (
