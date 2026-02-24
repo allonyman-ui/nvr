@@ -539,7 +539,7 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
 // Main page
 // ─────────────────────────────────────────────────────────────
 
-type TimeRange = 1 | 6 | 12;
+type TimeRange = 1 | 6 | 12 | 24;
 type Tab = 'events' | 'summary';
 
 export default function ActivitySummaryClient() {
@@ -558,7 +558,7 @@ export default function ActivitySummaryClient() {
   const load = useCallback(async (h: TimeRange, faces: boolean) => {
     setLoading(true);
     try {
-      const p = new URLSearchParams({ hours: String(h), limit: '300' });
+      const p = new URLSearchParams({ hours: String(h), limit: '500' });
       if (faces) p.set('faces', '1');
       const res = await fetch(`/api/activity-log?${p.toString()}`);
       if (res.status === 401) { router.push('/login'); return; }
@@ -581,7 +581,7 @@ export default function ActivitySummaryClient() {
   const filtered = cameraFilter ? events.filter((e) => e.camera_name === cameraFilter) : events;
   const groups = groupByHour(filtered);
 
-  const TIME_RANGES: TimeRange[] = [1, 6, 12];
+  const TIME_RANGES: TimeRange[] = [1, 6, 12, 24];
 
   return (
     <div className="min-h-screen bg-[#080c12] text-white">

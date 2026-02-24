@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const hours = Math.min(24, Math.max(1, Number(searchParams.get('hours') ?? '12')));
   const hasFacesOnly = searchParams.get('faces') === '1';
-  const limit = Math.min(200, Math.max(10, Number(searchParams.get('limit') ?? '100')));
+  const limit = Math.min(500, Math.max(10, Number(searchParams.get('limit') ?? '100')));
 
   const supabase = createServerClient();
   const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
