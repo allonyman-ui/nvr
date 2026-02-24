@@ -296,19 +296,16 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="hidden md:inline">People</span>
           </button>
 
-          {/* AI Watch Log (legacy) */}
+          {/* Activity Summary (full page) */}
           <button
-            onClick={() => togglePanel('ailog')}
-            title="Raw AI Log"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
-                        font-medium transition-all border ${
-              panel === 'ailog'
-                ? 'bg-blue-600/20 text-blue-400 border-blue-500/40'
-                : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
-            }`}
+            onClick={() => router.push('/summary')}
+            title="12-hour activity summary"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
+                       font-medium transition-all border text-white/30 hover:text-white/70
+                       border-transparent hover:bg-white/8 hover:border-white/10"
           >
-            <IconEye />
-            <span className="hidden lg:inline">AI Log</span>
+            <IconActivity />
+            <span className="hidden lg:inline">Summary</span>
           </button>
 
           {/* Separator */}

@@ -23,6 +23,7 @@ export interface ActivityEvent {
   description: string;
   motion_score: number;
   has_faces: boolean;
+  face_count: number;
   image_url: string | null;
   face_crops: FaceCrop[];
 }

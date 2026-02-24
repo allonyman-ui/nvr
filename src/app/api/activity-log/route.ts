@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
         description: row.description,
         motion_score: row.motion_score ?? 0,
         has_faces: row.has_faces ?? false,
+        face_count: row.face_count ?? 0,
         image_url,
         face_crops: row.face_crops ?? [],
       };
