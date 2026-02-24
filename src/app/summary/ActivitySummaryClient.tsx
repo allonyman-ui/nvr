@@ -307,12 +307,22 @@ function StatsBar({ events, hours }: { events: ActivityEvent[]; hours: number })
 // ─────────────────────────────────────────────────────────────
 
 interface AISummaryData {
+  cameraStatus: Array<{ camera: string; status: string }>;
   overview: string;
   highlights: string[];
   timeline: Array<{ period: string; summary: string }>;
   assessment: string;
   period: string;
+  capturedAt: string;
   stats: { totalEvents: number; faceEvents: number; totalPeople: number; cameras: number };
+}
+
+function fmtCapturedAt(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch {
+    return '';
+  }
 }
 
 function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: number }) {
@@ -349,25 +359,21 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
     }
   }
 
-  // Auto-generate when tab is opened with events
+  // Auto-generate when tab first opens
   useEffect(() => {
-    if (!generated && events.length >= 0) {
-      void generate();
-    }
+    if (!generated) void generate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-5">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
-          </div>
+        <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
         </div>
         <div className="text-center">
-          <p className="text-white/60 text-[14px] font-medium">Generating AI summary…</p>
-          <p className="text-white/25 text-[12px] mt-1">Analysing {events.length} events with Claude</p>
+          <p className="text-white/60 text-[14px] font-medium">Checking cameras &amp; analysing activity…</p>
+          <p className="text-white/25 text-[12px] mt-1">Fetching live snapshots + {events.length} recorded events</p>
         </div>
       </div>
     );
@@ -376,10 +382,10 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400/50 text-2xl">!</div>
+        <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400/60 text-xl font-bold">!</div>
         <div className="text-center">
           <p className="text-white/40 text-[14px]">{error}</p>
-          <button onClick={generate}
+          <button onClick={() => void generate()}
             className="mt-4 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white/80 hover:bg-white/8 text-[12px] transition-all">
             Try again
           </button>
@@ -393,7 +399,42 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
   return (
     <div className="space-y-5 max-w-3xl">
 
-      {/* Overview */}
+      {/* ── Right Now: live camera status ── */}
+      {data.cameraStatus.length > 0 && (
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.08] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] bg-white/[0.02]">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Right Now</span>
+              </div>
+              <span className="text-[10px] text-white/20 bg-white/[0.05] border border-white/[0.07] rounded-full px-2 py-0.5">
+                {data.cameraStatus.length} camera{data.cameraStatus.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            {data.capturedAt && (
+              <span className="text-[9px] text-white/20 font-mono">
+                Snapshot at {fmtCapturedAt(data.capturedAt)}
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-white/[0.04]">
+            {data.cameraStatus.map((cs) => (
+              <div key={cs.camera} className="flex items-start gap-3.5 px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+                <div className="flex-none w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mt-0.5">
+                  <Icon.Camera />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold text-blue-400/70 uppercase tracking-wider mb-0.5">{cs.camera}</p>
+                  <p className="text-[13px] text-white/70 leading-snug">{cs.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Overview ── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500/10 to-blue-500/5 border border-violet-500/20 p-6">
         <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-2xl -translate-y-8 translate-x-8" />
         <div className="flex items-center gap-2.5 mb-4">
@@ -404,16 +445,16 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
             <p className="text-[12px] font-semibold text-violet-400/80 uppercase tracking-wider">AI Overview</p>
             <p className="text-[10px] text-white/25">{data.period}</p>
           </div>
-          <button onClick={generate}
+          <button onClick={() => void generate()}
             className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium
                        text-white/30 hover:text-white/60 bg-white/5 border border-white/[0.06] hover:bg-white/8 transition-all">
-            <Icon.Refresh /> Regenerate
+            <Icon.Refresh /> Refresh
           </button>
         </div>
         <p className="text-white/80 text-[14px] leading-relaxed">{data.overview}</p>
       </div>
 
-      {/* Highlights */}
+      {/* ── Key Events ── */}
       {data.highlights.length > 0 && (
         <div className="rounded-2xl bg-white/[0.025] border border-white/[0.07] p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -435,7 +476,7 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
         </div>
       )}
 
-      {/* Timeline */}
+      {/* ── Timeline ── */}
       {data.timeline.length > 0 && (
         <div className="rounded-2xl bg-white/[0.025] border border-white/[0.07] p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -444,10 +485,9 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
             </div>
             <p className="text-[12px] font-semibold text-white/60 uppercase tracking-wider">Timeline</p>
           </div>
-          <div className="space-y-0">
+          <div>
             {data.timeline.map((t, i) => (
               <div key={i} className="flex gap-4">
-                {/* Vertical line */}
                 <div className="flex flex-col items-center flex-none">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-500/40 border border-blue-500/60 flex-none mt-0.5" />
                   {i < data.timeline.length - 1 && (
@@ -464,7 +504,7 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
         </div>
       )}
 
-      {/* Assessment */}
+      {/* ── Assessment ── */}
       {data.assessment && (
         <div className="flex items-start gap-3 rounded-2xl bg-white/[0.02] border border-white/[0.06] px-5 py-4">
           <div className="w-6 h-6 rounded-lg bg-teal-500/15 border border-teal-500/25 flex items-center justify-center text-teal-400 flex-none mt-0.5">
@@ -477,13 +517,13 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
         </div>
       )}
 
-      {/* Mini stats */}
+      {/* ── Mini stats ── */}
       <div className="grid grid-cols-4 gap-2">
         {[
           { label: 'Events analysed', value: data.stats.totalEvents, color: 'text-white/50' },
           { label: 'With people', value: data.stats.faceEvents, color: 'text-amber-400/70' },
           { label: 'People seen', value: data.stats.totalPeople, color: 'text-amber-400/70' },
-          { label: 'Cameras', value: data.stats.cameras, color: 'text-blue-400/70' },
+          { label: 'Cameras seen', value: data.cameraStatus.length || data.stats.cameras, color: 'text-blue-400/70' },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-xl bg-white/[0.02] border border-white/[0.06] px-3 py-3 text-center">
             <p className={`text-lg font-bold tabular-nums ${color}`}>{value}</p>
