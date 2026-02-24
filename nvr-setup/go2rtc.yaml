@@ -5,13 +5,14 @@
 # ---------------------------------------------------------------
 
 streams:
-  # Cameras serve H.265 even on subtype=1 — transcode to H.264 for browser compatibility
+  # Cameras serve H.265 even on subtype=1 — transcode video to H.264 and audio to AAC
+  # for broad browser / HLS compatibility. deck_nosound has no microphone.
   deck_nosound:  "ffmpeg:rtsp://admin:Mobile99@192.168.1.53:554/cam/realmonitor?channel=1&subtype=1#video=h264"
-  edna_mike:     "ffmpeg:rtsp://admin:Mobile99@192.168.1.54:554/cam/realmonitor?channel=1&subtype=1#video=h264"
-  bikes:         "ffmpeg:rtsp://admin:Mobile99@192.168.1.51:554/cam/realmonitor?channel=1&subtype=1#video=h264"
-  gina:          "ffmpeg:rtsp://admin:admin1234@192.168.1.55:554/cam/realmonitor?channel=1&subtype=1#video=h264"
-  entrance:      "ffmpeg:rtsp://admin:Mobile99@192.168.1.50:554/cam/realmonitor?channel=1&subtype=1#video=h264"
-  deck_sound:    "ffmpeg:rtsp://admin:Mobile99@192.168.1.52:554/cam/realmonitor?channel=1&subtype=1#video=h264"
+  edna_mike:     "ffmpeg:rtsp://admin:Mobile99@192.168.1.54:554/cam/realmonitor?channel=1&subtype=1#video=h264#audio=aac"
+  bikes:         "ffmpeg:rtsp://admin:Mobile99@192.168.1.51:554/cam/realmonitor?channel=1&subtype=1#video=h264#audio=aac"
+  gina:          "ffmpeg:rtsp://admin:admin1234@192.168.1.55:554/cam/realmonitor?channel=1&subtype=1#video=h264#audio=aac"
+  entrance:      "ffmpeg:rtsp://admin:Mobile99@192.168.1.50:554/cam/realmonitor?channel=1&subtype=1#video=h264#audio=aac"
+  deck_sound:    "ffmpeg:rtsp://admin:Mobile99@192.168.1.52:554/cam/realmonitor?channel=1&subtype=1#video=h264#audio=aac"
 
 # Listen on all interfaces — CORS is handled by nginx in front of go2rtc
 api:
