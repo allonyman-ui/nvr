@@ -20,10 +20,13 @@ export default async function NvrPage() {
     redirect('/login');
   }
 
+  const lastLogin = cookieStore.get('nvr_last_login')?.value ?? null;
+
   return (
     <NvrDashboard
       go2rtcBaseUrl={process.env.GO2RTC_BASE_URL ?? ''}
       cameras={getCamerasFromEnv()}
+      lastLogin={lastLogin}
     />
   );
 }

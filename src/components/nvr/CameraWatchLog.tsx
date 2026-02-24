@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-interface WatchEntry {
+export interface WatchEntry {
   camera: string;
   description: string;
   timestamp: string;
 }
 
 const POLL_INTERVAL_MS = 60_000;
+const STORAGE_KEY = 'nvr_watch_log';
+const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleTimeString([], {
@@ -18,18 +20,32 @@ function fmt(iso: string) {
   });
 }
 
+function loadFromStorage(): WatchEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as WatchEntry[];
+    const cutoff = Date.now() - MAX_AGE_MS;
+    return parsed.filter((e) => new Date(e.timestamp).getTime() > cutoff);
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(entries: WatchEntry[]) {
+  if (typeof window === 'undefined') return;
+  const cutoff = Date.now() - MAX_AGE_MS;
+  const pruned = entries
+    .filter((e) => new Date(e.timestamp).getTime() > cutoff)
+    .slice(0, 500);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+}
+
 function IconEye({ active }: { active: boolean }) {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
       <circle cx="12" cy="12" r="3" fill={active ? 'currentColor' : 'none'} />
     </svg>
@@ -38,34 +54,17 @@ function IconEye({ active }: { active: boolean }) {
 
 function IconClose() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
 
 function IconRefresh() {
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="23 4 23 10 17 10" />
       <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
     </svg>
@@ -86,6 +85,11 @@ export default function CameraWatchLog({ open, onClose }: Props) {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Load persisted entries on mount
+  useEffect(() => {
+    setEntries(loadFromStorage());
+  }, []);
+
   const runAnalysis = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -97,7 +101,11 @@ export default function CameraWatchLog({ open, onClose }: Props) {
         throw new Error(j.error ?? `HTTP ${res.status}`);
       }
       const { entries: newEntries } = (await res.json()) as { entries: WatchEntry[] };
-      setEntries((prev) => [...newEntries, ...prev].slice(0, 200));
+      setEntries((prev) => {
+        const merged = [...newEntries, ...prev].slice(0, 500);
+        saveToStorage(merged);
+        return merged;
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -105,7 +113,6 @@ export default function CameraWatchLog({ open, onClose }: Props) {
     }
   }, []);
 
-  // Start/stop polling based on open state
   useEffect(() => {
     if (!open) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -114,27 +121,15 @@ export default function CameraWatchLog({ open, onClose }: Props) {
       countdownRef.current = null;
       return;
     }
-
-    // Immediate first run
     void runAnalysis();
-
-    // Poll every 60 s
-    intervalRef.current = setInterval(() => {
-      void runAnalysis();
-    }, POLL_INTERVAL_MS);
-
-    // Countdown ticker
-    countdownRef.current = setInterval(() => {
-      setCountdown((c) => Math.max(0, c - 1));
-    }, 1000);
-
+    intervalRef.current = setInterval(() => void runAnalysis(), POLL_INTERVAL_MS);
+    countdownRef.current = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [open, runAnalysis]);
 
-  // Scroll to top when new entries arrive
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = 0;
   }, [entries.length]);
@@ -142,91 +137,58 @@ export default function CameraWatchLog({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end pointer-events-none"
-      aria-label="AI activity log panel"
-    >
-      {/* Backdrop (click to close) */}
-      <div
-        className="absolute inset-0 pointer-events-auto"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Panel */}
+    <div className="fixed inset-0 z-40 flex justify-end pointer-events-none">
+      <div className="absolute inset-0 pointer-events-auto" onClick={onClose} aria-hidden />
       <div
         className="relative w-80 h-full bg-[#0d1520] border-l border-white/[0.07]
                    flex flex-col shadow-2xl pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex-none flex items-center justify-between px-4 py-3
-                        border-b border-white/[0.06]">
+        <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <span className="text-blue-400">
-              <IconEye active />
-            </span>
-            <span className="text-[12px] font-semibold text-white/80 tracking-wide">
-              AI Activity Log
-            </span>
-            {loading && (
-              <span className="w-3.5 h-3.5 border border-white/10 border-t-blue-500
-                               rounded-full animate-spin" />
-            )}
+            <span className="text-blue-400"><IconEye active /></span>
+            <span className="text-[12px] font-semibold text-white/80 tracking-wide">AI Activity Log</span>
+            {loading && <span className="w-3.5 h-3.5 border border-white/10 border-t-blue-500 rounded-full animate-spin" />}
           </div>
           <div className="flex items-center gap-2">
             {!loading && (
-              <button
-                onClick={() => void runAnalysis()}
-                title="Refresh now"
-                className="text-white/30 hover:text-white/70 transition-colors"
-              >
+              <button onClick={() => void runAnalysis()} title="Refresh now"
+                className="text-white/30 hover:text-white/70 transition-colors">
                 <IconRefresh />
               </button>
             )}
-            <button
-              onClick={onClose}
-              title="Close"
-              className="text-white/30 hover:text-white/70 transition-colors"
-            >
+            <button onClick={onClose} title="Close"
+              className="text-white/30 hover:text-white/70 transition-colors">
               <IconClose />
             </button>
           </div>
         </div>
 
-        {/* Sub-header: next scan countdown */}
+        {/* Sub-header */}
         <div className="flex-none flex items-center justify-between px-4 py-1.5
                         bg-white/[0.02] border-b border-white/[0.04]">
           <span className="text-[10px] text-white/25">
-            {loading
-              ? 'Analyzing camera feeds…'
-              : `Next scan in ${countdown}s`}
+            {loading ? 'Analyzing camera feeds…' : `Next scan in ${countdown}s`}
           </span>
-          <span className="text-[10px] text-white/20">
-            {entries.length} entries
-          </span>
+          <span className="text-[10px] text-white/20">{entries.length} entries</span>
         </div>
 
         {/* Entry list */}
         <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 scrollbar-none">
           {error && (
-            <div className="text-[11px] text-red-400/80 bg-red-500/10 border border-red-500/20
-                            rounded-lg px-3 py-2">
+            <div className="text-[11px] text-red-400/80 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
               {error}
             </div>
           )}
-
           {entries.length === 0 && !loading && !error && (
-            <div className="flex flex-col items-center justify-center h-32 gap-2">
+            <div className="flex items-center justify-center h-32">
               <span className="text-white/15 text-[11px]">Waiting for first scan…</span>
             </div>
           )}
-
           {entries.map((entry, i) => (
-            <div
-              key={`${entry.timestamp}-${entry.camera}-${i}`}
-              className="rounded-lg bg-white/[0.03] border border-white/[0.05] px-3 py-2.5"
-            >
+            <div key={`${entry.timestamp}-${entry.camera}-${i}`}
+              className="rounded-lg bg-white/[0.03] border border-white/[0.05] px-3 py-2.5">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-semibold text-blue-400/80 truncate max-w-[60%]">
                   {entry.camera}
@@ -235,18 +197,15 @@ export default function CameraWatchLog({ open, onClose }: Props) {
                   {fmt(entry.timestamp)}
                 </span>
               </div>
-              <p className="text-[11px] text-white/55 leading-relaxed">
-                {entry.description}
-              </p>
+              <p className="text-[11px] text-white/55 leading-relaxed">{entry.description}</p>
             </div>
           ))}
         </div>
 
-        {/* Footer note */}
+        {/* Footer */}
         <div className="flex-none px-4 py-2 border-t border-white/[0.05]">
           <p className="text-[9px] text-white/15 text-center leading-relaxed">
-            AI analyzes one snapshot per camera every 60 s.<br />
-            Log is cleared when you close this panel.
+            Entries saved for 24 h · View full report on the Summary page.
           </p>
         </div>
       </div>

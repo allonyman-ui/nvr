@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import CameraPlayer from './CameraPlayer';
 import CameraWatchLog from './CameraWatchLog';
+import ActivityFeed from './ActivityFeed';
+import KnownPeoplePanel from './KnownPeoplePanel';
+import { useFrameCapture } from '@/hooks/useFrameCapture';
 
 interface Camera {
   id: string;
@@ -14,9 +17,11 @@ interface Camera {
 interface NvrDashboardProps {
   go2rtcBaseUrl: string;
   cameras: Camera[];
+  lastLogin: string | null;
 }
 
 type Layout = 'auto' | '1x1' | '2x2' | '3x2';
+type Panel = 'none' | 'ailog' | 'activity' | 'people';
 
 function resolveLayout(layout: Layout, count: number): [number, number] {
   if (layout === '1x1') return [1, 1];
@@ -40,6 +45,19 @@ function useClock() {
   return time;
 }
 
+function fmtLastLogin(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  if (isToday) {
+    return `Today ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+    ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── Icons ──────────────────────────────────────────────────────────────
+
 function CameraIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -49,40 +67,76 @@ function CameraIcon() {
     </svg>
   );
 }
-
 function Grid1Icon() {
   return (
     <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor">
-      <rect x="1" y="1" width="10" height="10" rx="1.5"/>
+      <rect x="1" y="1" width="10" height="10" rx="1.5" />
     </svg>
   );
 }
-
 function Grid2Icon() {
   return (
     <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor">
-      <rect x="1" y="1" width="4.5" height="4.5" rx="1"/>
-      <rect x="6.5" y="1" width="4.5" height="4.5" rx="1"/>
-      <rect x="1" y="6.5" width="4.5" height="4.5" rx="1"/>
-      <rect x="6.5" y="6.5" width="4.5" height="4.5" rx="1"/>
+      <rect x="1" y="1" width="4.5" height="4.5" rx="1" />
+      <rect x="6.5" y="1" width="4.5" height="4.5" rx="1" />
+      <rect x="1" y="6.5" width="4.5" height="4.5" rx="1" />
+      <rect x="6.5" y="6.5" width="4.5" height="4.5" rx="1" />
     </svg>
   );
 }
-
 function Grid3Icon() {
   return (
     <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor">
-      <rect x="1" y="1" width="2.67" height="4.5" rx="0.75"/>
-      <rect x="4.67" y="1" width="2.67" height="4.5" rx="0.75"/>
-      <rect x="8.33" y="1" width="2.67" height="4.5" rx="0.75"/>
-      <rect x="1" y="6.5" width="2.67" height="4.5" rx="0.75"/>
-      <rect x="4.67" y="6.5" width="2.67" height="4.5" rx="0.75"/>
-      <rect x="8.33" y="6.5" width="2.67" height="4.5" rx="0.75"/>
+      <rect x="1" y="1" width="2.67" height="4.5" rx="0.75" />
+      <rect x="4.67" y="1" width="2.67" height="4.5" rx="0.75" />
+      <rect x="8.33" y="1" width="2.67" height="4.5" rx="0.75" />
+      <rect x="1" y="6.5" width="2.67" height="4.5" rx="0.75" />
+      <rect x="4.67" y="6.5" width="2.67" height="4.5" rx="0.75" />
+      <rect x="8.33" y="6.5" width="2.67" height="4.5" rx="0.75" />
+    </svg>
+  );
+}
+function IconActivity() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  );
+}
+function IconPeople() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87" />
+      <path d="M16 3.13a4 4 0 010 7.75" />
+    </svg>
+  );
+}
+function IconEye() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function IconLock() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
     </svg>
   );
 }
 
-export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardProps) {
+// ── Main ───────────────────────────────────────────────────────────────
+
+export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrDashboardProps) {
   const router = useRouter();
   const time = useClock();
 
@@ -90,12 +144,20 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
   const [visible, setVisible] = useState<Set<string>>(new Set(allIds));
   const [layout, setLayout] = useState<Layout>('auto');
   const [focused, setFocused] = useState<Camera | null>(null);
-  const [watchOpen, setWatchOpen] = useState(false);
+  const [panel, setPanel] = useState<Panel>('none');
+  const [captureEnabled, setCaptureEnabled] = useState(true);
 
   const visibleCameras = cameras.filter((c) => visible.has(c.id));
   const [cols, maxCams] = resolveLayout(layout, visibleCameras.length);
   const displayedCameras = visibleCameras.slice(0, maxCams);
   const rows = Math.max(1, Math.ceil(displayedCameras.length / cols));
+
+  // 5-second frame capture + motion detection
+  const capture = useFrameCapture(cameras, go2rtcBaseUrl, captureEnabled);
+
+  function togglePanel(p: Panel) {
+    setPanel((cur) => (cur === p ? 'none' : p));
+  }
 
   function toggleCamera(id: string) {
     setVisible((prev) => {
@@ -132,9 +194,9 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
 
   const LAYOUTS: { key: Layout; icon: React.ReactNode; label: string }[] = [
     { key: 'auto', icon: null, label: 'Auto' },
-    { key: '1x1',  icon: <Grid1Icon />, label: '1×1' },
-    { key: '2x2',  icon: <Grid2Icon />, label: '2×2' },
-    { key: '3x2',  icon: <Grid3Icon />, label: '3×2' },
+    { key: '1x1', icon: <Grid1Icon />, label: '1×1' },
+    { key: '2x2', icon: <Grid2Icon />, label: '2×2' },
+    { key: '3x2', icon: <Grid3Icon />, label: '3×2' },
   ];
 
   return (
@@ -154,7 +216,6 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
           <span className="font-semibold text-[13px] text-white/90 hidden sm:block tracking-tight">
             Security Cameras
           </span>
-          {/* Live recording indicator */}
           <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20
                           rounded-full px-2 py-0.5 ml-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-none" />
@@ -164,6 +225,18 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
                            px-2 py-0.5 rounded-full font-medium tabular-nums">
             {displayedCameras.length}/{cameras.length}
           </span>
+          {/* Capture indicator */}
+          <button
+            onClick={() => setCaptureEnabled((e) => !e)}
+            title={captureEnabled ? 'AI capture active — click to pause' : 'AI capture paused — click to resume'}
+            className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px]
+                        font-medium border transition-all ${captureEnabled
+              ? 'bg-green-500/10 border-green-500/20 text-green-400'
+              : 'bg-white/5 border-white/10 text-white/30'}`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full flex-none ${captureEnabled ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`} />
+            {captureEnabled ? 'AI On' : 'AI Off'}
+          </button>
         </div>
 
         {/* Center: layout picker */}
@@ -184,28 +257,78 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
           ))}
         </div>
 
-        {/* Right: AI watch + clock + logout */}
-        <div className="flex items-center gap-3 flex-none">
+        {/* Right: panel buttons + last login + clock + logout */}
+        <div className="flex items-center gap-1.5 flex-none">
+
+          {/* Activity Feed */}
           <button
-            onClick={() => setWatchOpen((o) => !o)}
-            title="AI Activity Log"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px]
+            onClick={() => togglePanel('activity')}
+            title="Activity Feed"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
+                        font-medium transition-all border relative ${
+              panel === 'activity'
+                ? 'bg-green-600/20 text-green-400 border-green-500/40'
+                : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
+            }`}
+          >
+            <IconActivity />
+            <span className="hidden md:inline">Activity</span>
+            {capture.eventCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full
+                               text-[8px] font-bold text-white flex items-center justify-center">
+                {capture.eventCount > 9 ? '9+' : capture.eventCount}
+              </span>
+            )}
+          </button>
+
+          {/* Known People */}
+          <button
+            onClick={() => togglePanel('people')}
+            title="Known People"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
                         font-medium transition-all border ${
-              watchOpen
+              panel === 'people'
+                ? 'bg-purple-600/20 text-purple-400 border-purple-500/40'
+                : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
+            }`}
+          >
+            <IconPeople />
+            <span className="hidden md:inline">People</span>
+          </button>
+
+          {/* AI Watch Log (legacy) */}
+          <button
+            onClick={() => togglePanel('ailog')}
+            title="Raw AI Log"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
+                        font-medium transition-all border ${
+              panel === 'ailog'
                 ? 'bg-blue-600/20 text-blue-400 border-blue-500/40'
                 : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
             }`}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" fill={watchOpen ? 'currentColor' : 'none'} />
-            </svg>
-            <span className="hidden sm:inline">AI Watch</span>
+            <IconEye />
+            <span className="hidden lg:inline">AI Log</span>
           </button>
+
+          {/* Separator */}
+          <div className="w-px h-4 bg-white/[0.08] mx-1" />
+
+          {/* Last login */}
+          {lastLogin && (
+            <div className="hidden lg:flex items-center gap-1 text-white/20 text-[10px]"
+              title={`Session started: ${new Date(lastLogin).toLocaleString()}`}>
+              <IconLock />
+              <span>{fmtLastLogin(lastLogin)}</span>
+            </div>
+          )}
+
+          {/* Clock */}
           <span className="text-[11px] text-white/30 font-mono tabular-nums hidden md:block">
             {time}
           </span>
+
+          {/* Logout */}
           <button
             onClick={handleLogout}
             className="text-[11px] text-white/30 hover:text-white/70 transition-colors
@@ -272,8 +395,22 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras }: NvrDashboardPro
         )}
       </main>
 
-      {/* ── AI Watch Log panel ── */}
-      <CameraWatchLog open={watchOpen} onClose={() => setWatchOpen(false)} />
+      {/* ── Side panels ── */}
+      <ActivityFeed
+        open={panel === 'activity'}
+        onClose={() => setPanel('none')}
+        captureActive={capture.isCapturing}
+        captureEventCount={capture.eventCount}
+        lastCapture={capture.lastCapture}
+      />
+      <KnownPeoplePanel
+        open={panel === 'people'}
+        onClose={() => setPanel('none')}
+      />
+      <CameraWatchLog
+        open={panel === 'ailog'}
+        onClose={() => setPanel('none')}
+      />
 
       {/* ── Fullscreen overlay ── */}
       {focused && (

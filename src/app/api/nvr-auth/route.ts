@@ -25,6 +25,13 @@ export async function POST(req: NextRequest) {
     maxAge: MAX_AGE,
     path: '/',
   });
+  res.cookies.set('nvr_last_login', new Date().toISOString(), {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: MAX_AGE,
+    path: '/',
+  });
   return res;
 }
 
