@@ -200,20 +200,20 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
   ];
 
   return (
-    <div className="h-screen bg-[#080c12] text-white flex flex-col overflow-hidden select-none">
+    <div className="h-screen bg-[#070b11] text-white flex flex-col overflow-hidden select-none">
 
       {/* ── Header ── */}
       <header className="flex-none flex items-center gap-3 px-4 py-2.5
                          border-b border-white/[0.06]
-                         bg-gradient-to-b from-[#0d1520]/80 to-transparent backdrop-blur-sm">
+                         bg-[#0b1320]/90 backdrop-blur-xl shadow-lg shadow-black/30">
 
         {/* Left: branding */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30
-                          flex items-center justify-center text-blue-400 flex-none">
+                          flex items-center justify-center text-blue-400 flex-none shadow-inner shadow-blue-500/10">
             <CameraIcon />
           </div>
-          <span className="font-semibold text-[13px] text-white/90 hidden sm:block tracking-tight">
+          <span className="font-semibold text-[13px] text-white/85 hidden sm:block tracking-tight">
             Security Cameras
           </span>
           <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20
@@ -221,7 +221,7 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-none" />
             <span className="text-[10px] font-semibold text-red-400 tracking-widest uppercase">Live</span>
           </div>
-          <span className="text-[11px] text-white/25 bg-white/5 border border-white/10
+          <span className="text-[11px] text-white/20 bg-white/[0.05] border border-white/[0.08]
                            px-2 py-0.5 rounded-full font-medium tabular-nums">
             {displayedCameras.length}/{cameras.length}
           </span>
@@ -229,10 +229,10 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
           <button
             onClick={() => setCaptureEnabled((e) => !e)}
             title={captureEnabled ? 'AI capture active — click to pause' : 'AI capture paused — click to resume'}
-            className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px]
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px]
                         font-medium border transition-all ${captureEnabled
-              ? 'bg-green-500/10 border-green-500/20 text-green-400'
-              : 'bg-white/5 border-white/10 text-white/30'}`}
+              ? 'bg-green-500/10 border-green-500/25 text-green-400'
+              : 'bg-white/[0.04] border-white/[0.08] text-white/25'}`}
           >
             <span className={`w-1.5 h-1.5 rounded-full flex-none ${captureEnabled ? 'bg-green-500 animate-pulse' : 'bg-white/20'}`} />
             {captureEnabled ? 'AI On' : 'AI Off'}
@@ -240,16 +240,16 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
         </div>
 
         {/* Center: layout picker */}
-        <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 flex-none">
+        <div className="flex items-center gap-0.5 bg-white/[0.05] border border-white/[0.07] rounded-xl p-0.5 flex-none">
           {LAYOUTS.map(({ key, icon, label }) => (
             <button
               key={key}
               onClick={() => setLayout(key)}
               title={label}
-              className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 ${
                 layout === key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-white/40 hover:text-white/70'
+                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-700/50'
+                  : 'text-white/35 hover:text-white/70 hover:bg-white/5'
               }`}
             >
               {icon ?? label}
@@ -267,15 +267,15 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
                         font-medium transition-all border relative ${
               panel === 'activity'
-                ? 'bg-green-600/20 text-green-400 border-green-500/40'
-                : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
+                ? 'bg-green-600/20 text-green-400 border-green-500/40 shadow-sm shadow-green-900/30'
+                : 'text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]'
             }`}
           >
             <IconActivity />
             <span className="hidden md:inline">Activity</span>
             {capture.eventCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full
-                               text-[8px] font-bold text-white flex items-center justify-center">
+                               text-[8px] font-bold text-white flex items-center justify-center shadow-sm shadow-green-900/50">
                 {capture.eventCount > 9 ? '9+' : capture.eventCount}
               </span>
             )}
@@ -288,8 +288,8 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
                         font-medium transition-all border ${
               panel === 'people'
-                ? 'bg-purple-600/20 text-purple-400 border-purple-500/40'
-                : 'text-white/30 hover:text-white/70 border-transparent hover:bg-white/8 hover:border-white/10'
+                ? 'bg-purple-600/20 text-purple-400 border-purple-500/40 shadow-sm shadow-purple-900/30'
+                : 'text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]'
             }`}
           >
             <IconPeople />
@@ -299,14 +299,16 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
           {/* Activity Summary (full page) — primary CTA */}
           <button
             onClick={() => router.push('/summary')}
-            title="Open 12-hour activity log"
+            title="Open activity log & AI summary"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]
                        font-semibold transition-all
-                       bg-green-600/25 border border-green-500/40 text-green-400
-                       hover:bg-green-600/40 hover:border-green-400/60 hover:text-green-300"
+                       bg-gradient-to-r from-violet-600/20 to-blue-600/20
+                       border border-violet-500/35 text-violet-300
+                       hover:from-violet-600/35 hover:to-blue-600/30 hover:border-violet-400/50 hover:text-violet-200
+                       shadow-sm shadow-violet-900/20"
           >
             <IconActivity />
-            <span>Activity Log</span>
+            <span>Activity &amp; AI</span>
           </button>
 
           {/* Separator */}
@@ -322,16 +324,16 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
           )}
 
           {/* Clock */}
-          <span className="text-[11px] text-white/30 font-mono tabular-nums hidden md:block">
+          <span className="text-[11px] text-white/25 font-mono tabular-nums hidden md:block">
             {time}
           </span>
 
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="text-[11px] text-white/30 hover:text-white/70 transition-colors
-                       px-2.5 py-1 rounded-lg hover:bg-white/8 border border-transparent
-                       hover:border-white/10"
+            className="text-[11px] text-white/25 hover:text-white/65 transition-colors
+                       px-2.5 py-1 rounded-lg hover:bg-white/[0.06] border border-transparent
+                       hover:border-white/[0.08]"
           >
             Sign out
           </button>
@@ -340,13 +342,13 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
 
       {/* ── Camera filter pills ── */}
       <div className="flex-none flex items-center gap-1.5 px-4 py-2
-                      border-b border-white/[0.04] overflow-x-auto scrollbar-none">
+                      border-b border-white/[0.04] overflow-x-auto scrollbar-none bg-[#080d14]/50">
         <button
           onClick={() => setVisible(new Set(allIds))}
           className={`flex-none px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
             visible.size === cameras.length
               ? 'bg-white/10 text-white border border-white/20'
-              : 'text-white/30 hover:text-white/60 hover:bg-white/5 border border-transparent'
+              : 'text-white/25 hover:text-white/55 hover:bg-white/[0.04] border border-transparent'
           }`}
         >
           All
@@ -357,8 +359,8 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             onClick={() => toggleCamera(cam.id)}
             className={`flex-none px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
               visible.has(cam.id)
-                ? 'bg-blue-600/80 text-white border border-blue-500/50 shadow-sm shadow-blue-500/20'
-                : 'text-white/30 hover:text-white/60 hover:bg-white/5 border border-transparent'
+                ? 'bg-blue-600/80 text-white border border-blue-500/50 shadow-sm shadow-blue-900/40'
+                : 'text-white/25 hover:text-white/55 hover:bg-white/[0.04] border border-transparent'
             }`}
           >
             {cam.name}
@@ -367,9 +369,9 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
       </div>
 
       {/* ── Camera grid ── */}
-      <main className="flex-1 overflow-hidden p-2">
+      <main className="flex-1 overflow-hidden p-2 bg-[#060a10]">
         {displayedCameras.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-white/20 text-sm">
+          <div className="h-full flex items-center justify-center text-white/15 text-sm">
             No cameras selected
           </div>
         ) : (
