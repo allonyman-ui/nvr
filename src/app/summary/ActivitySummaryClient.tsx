@@ -620,19 +620,18 @@ function IntelLogView() {
   const [diagLoading, setDiagLoading] = useState(false);
 
   async function doFetch(): Promise<IntelEntry[]> {
-    try {
-      const res = await fetch('/api/intel-log?limit=50');
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as { entries?: IntelEntry[] };
-      const fetched = data.entries ?? [];
-      setEntries(fetched);
-      return fetched;
-    } catch (e) {
-      throw e;
+    const res = await fetch('/api/intel-log?limit=50');
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      const msg = body.error ?? `HTTP ${res.status}`;
+      console.error('[Intel] fetch failed:', msg);
+      throw new Error(msg);
     }
+    const data = (await res.json()) as { entries?: IntelEntry[] };
+    const fetched = data.entries ?? [];
+    console.log('[Intel] fetched', fetched.length, 'entries');
+    setEntries(fetched);
+    return fetched;
   }
 
   async function doGenerate() {
@@ -641,9 +640,14 @@ function IntelLogView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ frames: [], trigger: 'manual' }),
     });
+    const body = await res.json().catch(() => ({})) as { error?: string; entry?: { id: string } };
     if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { error?: string };
-      throw new Error(body.error ?? `Server error ${res.status}`);
+      const msg = body.error ?? `Server error ${res.status}`;
+      console.error('[Intel] generate failed:', msg);
+      throw new Error(msg);
+    }
+    if (body.entry?.id) {
+      console.log('[Intel] generated entry id:', body.entry.id);
     }
   }
 
@@ -651,23 +655,21 @@ function IntelLogView() {
     setDiagLoading(true);
     try {
       const res = await fetch('/api/intel-debug');
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        setGenError(body.error ?? 'Diagnostics failed');
-        return;
-      }
       const data = (await res.json()) as DiagResults;
+      console.log('[Intel] diagnostics:', data.ok ? 'all ok' : 'issues found', data.checks);
       setDiag(data);
     } catch (e) {
-      setGenError(e instanceof Error ? e.message : 'Diagnostics network error');
+      console.error('[Intel] diagnostics network error:', e);
     } finally {
       setDiagLoading(false);
     }
   }
 
-  // On mount: load entries, auto-generate if empty, poll every 60s
+  // On mount: load entries + auto-run diagnostics in parallel, poll every 60s
   useEffect(() => {
     let cancelled = false;
+    // Always run diagnostics immediately so user sees config state without having to click
+    void runDiagnostics();
     (async () => {
       setLoading(true);
       let fetchOk = false;
@@ -682,10 +684,10 @@ function IntelLogView() {
       }
       // Only auto-generate if the fetch succeeded and there are no entries yet
       if (!cancelled && fetchOk && fetched.length === 0) {
-        setGenerating(true);
+        if (!cancelled) setGenerating(true);
         try {
           await doGenerate();
-          if (!cancelled) { try { await doFetch(); } catch { /* ignore */ } }
+          if (!cancelled) { try { await doFetch(); } catch (e) { console.error('[Intel] post-generate fetch error:', e); } }
         } catch (e) {
           if (!cancelled) setGenError(e instanceof Error ? e.message : 'Failed to generate report');
         } finally {
@@ -693,7 +695,7 @@ function IntelLogView() {
         }
       }
     })();
-    const pollId = setInterval(() => { void doFetch().catch(() => { /* ignore */ }); }, 60_000);
+    const pollId = setInterval(() => { void doFetch().catch((e) => console.error('[Intel] poll error:', e)); }, 60_000);
     return () => { cancelled = true; clearInterval(pollId); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -821,7 +823,13 @@ function IntelLogView() {
           </button>
         </div>
 
-        {/* Diagnostic results */}
+        {/* Diagnostic results — always shown (auto-runs on mount) */}
+        {diagLoading && !diag && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.07]">
+            <div className="w-3 h-3 border border-white/20 border-t-white/50 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
+            <p className="text-[11px] text-white/30">Running diagnostics…</p>
+          </div>
+        )}
         {diag && <DiagPanel diag={diag} />}
       </div>
     );
