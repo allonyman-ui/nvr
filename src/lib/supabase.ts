@@ -43,3 +43,20 @@ export interface KnownPerson {
   last_seen_at: string | null;
   seen_count: number;
 }
+
+// AI Intel Log — continuous, never-deleted intelligence reports
+export interface IntelEntry {
+  id: string;
+  timestamp: string;
+  period_label: string;
+  trigger: string;
+  summary: string;
+  activity_lines: string[];
+  change_from_previous: string | null;
+  patterns: string[];
+  anomalies: string[];
+  camera_states: Record<string, string>;
+  total_events: number;
+  face_count: number;
+  created_at: string;
+}
