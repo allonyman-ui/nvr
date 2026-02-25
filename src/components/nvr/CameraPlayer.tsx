@@ -112,10 +112,11 @@ export default function CameraPlayer({ streamUrl, snapshotUrl, label, onExpand }
 
       if (Hls.isSupported()) {
         hls = new Hls({
-          lowLatencyMode: false,
-          liveSyncDurationCount: 3,
-          liveMaxLatencyDurationCount: 10,
-          maxBufferLength: 30,
+          lowLatencyMode: true,
+          liveSyncDurationCount: 1,
+          liveMaxLatencyDurationCount: 3,
+          maxBufferLength: 5,
+          maxMaxBufferLength: 10,
           manifestLoadingTimeOut: 20000,
           manifestLoadingMaxRetry: 4,
           levelLoadingTimeOut: 20000,

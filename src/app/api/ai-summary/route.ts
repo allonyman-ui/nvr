@@ -52,21 +52,19 @@ export async function POST(req: NextRequest) {
     .filter((r): r is PromiseFulfilledResult<{ cam: (typeof cameras)[0]; base64: string }> => r.status === 'fulfilled')
     .map((r) => r.value);
 
+  const hasImages = frames.length > 0;
+
   // ── 2. Build Claude message content ───────────────────────────────────
+  //
+  // IMPORTANT prompt architecture: the event log is the primary source of
+  // truth for the "overview" field. Camera snapshots show the CURRENT state
+  // only — they must not override the historical event log in the analysis.
+  // We frame the instructions BEFORE the images so Claude reads them first.
+
   const faceEvents = events.filter((e) => e.has_faces);
   const totalPeople = events.reduce((sum, e) => sum + (e.face_count ?? 0), 0);
   const camNames = Array.from(new Set(events.map((e) => e.camera_name)));
 
-  // Image blocks for each live frame
-  const imageBlocks: Anthropic.MessageParam['content'] = frames.flatMap(({ cam, base64 }) => [
-    {
-      type: 'image' as const,
-      source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: base64 },
-    },
-    { type: 'text' as const, text: `[Current snapshot — Camera: ${cam.name}]` },
-  ]);
-
-  // Event log text block
   const eventLogText =
     events.length === 0
       ? 'No motion events were recorded during this period.'
@@ -83,49 +81,64 @@ export async function POST(req: NextRequest) {
       ? 'No events recorded.'
       : `${events.length} total events, ${totalPeople} people spotted in ${faceEvents.length} events across cameras: ${camNames.join(', ')}.`;
 
-  const hasImages = frames.length > 0;
-
-  const promptText =
-    `You are a home security analyst. ` +
+  // Pre-image framing: tell Claude what it's about to see and how to use it
+  const preImageText =
+    `You are a home security analyst producing a summary report.\n\n` +
+    `=== ACTIVITY EVENT LOG — Last ${hours} hour${hours !== 1 ? 's' : ''} ===\n` +
+    `(This is the authoritative record of what happened. Base your overview and timeline on this log.)\n\n` +
+    `${eventLogText}\n\n` +
+    `Stats: ${statsText}\n\n` +
     (hasImages
-      ? `You can see ${frames.length} live camera snapshot${frames.length !== 1 ? 's' : ''} above. `
-      : '') +
-    `Here is the motion event log for the last ${hours} hour${hours !== 1 ? 's' : ''}:\n\n` +
-    eventLogText +
-    `\n\nStats: ${statsText}\n\n` +
+      ? `=== CURRENT CAMERA SNAPSHOTS ===\n` +
+        `(These show what cameras look like RIGHT NOW — they do NOT represent the full history period.\n` +
+        `Do NOT conclude "no activity" from a currently-quiet snapshot if the event log shows otherwise.)\n`
+      : '');
+
+  // Post-image analysis request
+  const postImageText =
+    `=== YOUR TASK ===\n` +
     `Return ONLY valid JSON in this exact shape (no markdown, no extra text):\n` +
     `{\n` +
     `  "cameraStatus": [\n` +
-    `    {"camera": "<name>", "status": "one sentence — what you see right now in the snapshot, or N/A if no snapshot"}\n` +
+    `    {"camera": "<name>", "status": "what you see RIGHT NOW in the snapshot"}\n` +
     `  ],\n` +
-    `  "overview": "2–3 natural sentences summarising activity over the period",\n` +
-    `  "highlights": ["key event 1", "key event 2", "...up to 5"],\n` +
+    `  "overview": "2–3 sentences summarising what HAPPENED during the ${hours}h period (from the event log, not the snapshots)",\n` +
+    `  "highlights": ["key event 1 with time", "key event 2", "...up to 5"],\n` +
     `  "timeline": [\n` +
-    `    {"period": "Morning / Afternoon / Evening / Night or e.g. '9–10 AM'", "summary": "what happened"}\n` +
+    `    {"period": "HH:MM–HH:MM or Morning/Afternoon/Evening", "summary": "what happened"}\n` +
     `  ],\n` +
-    `  "assessment": "One sentence overall security assessment"\n` +
+    `  "assessment": "One sentence overall security assessment based on the event log"\n` +
     `}\n\n` +
     `Rules:\n` +
-    `- cameraStatus MUST have one entry per camera snapshot shown above; if no snapshots, return an empty array\n` +
-    `- Describe what you actually see in the snapshot (people, animals, vehicles, lighting conditions, empty room, etc.)\n` +
-    `- For overview/highlights/timeline use natural language — no technical jargon, no "motion_score"\n` +
-    `- Be specific about times; skip duplicate/trivial blips\n` +
-    `- If no events happened, overview should still reflect what the cameras show right now\n` +
-    `- timeline entries only for periods where something actually happened; empty array if nothing notable`;
+    `- overview MUST reflect the activity event log above — if there were ${events.length} events, describe them\n` +
+    `- cameraStatus describes the current snapshot only (what you see NOW)\n` +
+    `- highlights and timeline come from the event log with specific times\n` +
+    `- If events list is empty, only then say there was no activity\n` +
+    `- timeline: only include periods where something happened`;
+
+  // Image blocks for each live frame
+  const imageBlocks: Anthropic.MessageParam['content'] = frames.flatMap(({ cam, base64 }) => [
+    {
+      type: 'image' as const,
+      source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: base64 },
+    },
+    { type: 'text' as const, text: `[Current snapshot — Camera: ${cam.name}]` },
+  ]);
+
+  const messageContent: Anthropic.MessageParam['content'] = hasImages
+    ? [
+        { type: 'text' as const, text: preImageText },
+        ...imageBlocks,
+        { type: 'text' as const, text: postImageText },
+      ]
+    : [{ type: 'text' as const, text: preImageText + postImageText }];
 
   const client = new Anthropic({ apiKey });
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1400,
-    messages: [
-      {
-        role: 'user',
-        content: hasImages
-          ? [...imageBlocks, { type: 'text' as const, text: promptText }]
-          : [{ type: 'text' as const, text: promptText }],
-      },
-    ],
+    messages: [{ role: 'user', content: messageContent }],
   });
 
   const raw = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '';
