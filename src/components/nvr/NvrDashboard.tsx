@@ -6,6 +6,7 @@ import CameraPlayer from './CameraPlayer';
 import CameraWatchLog from './CameraWatchLog';
 import ActivityFeed from './ActivityFeed';
 import KnownPeoplePanel from './KnownPeoplePanel';
+import IntelPanel from './IntelPanel';
 import { useSceneMonitor } from '@/hooks/useSceneMonitor';
 import type { IntelEntry } from '@/lib/supabase';
 
@@ -22,7 +23,7 @@ interface NvrDashboardProps {
 }
 
 type Layout = 'auto' | '1x1' | '2x2' | '3x2';
-type Panel  = 'none' | 'ailog' | 'activity' | 'people';
+type Panel  = 'none' | 'ailog' | 'activity' | 'people' | 'intel';
 
 function resolveLayout(layout: Layout, count: number): [number, number] {
   if (layout === '1x1') return [1, 1];
@@ -131,42 +132,6 @@ function IconBrain() {
     </svg>
   );
 }
-function IconSend() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-    </svg>
-  );
-}
-function IconRefresh({ spinning }: { spinning?: boolean }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-      className={spinning ? 'animate-spin' : undefined}>
-      <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-    </svg>
-  );
-}
-function IconChevron({ up }: { up: boolean }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      style={{ transform: up ? 'rotate(180deg)' : undefined }}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-function IconWarning() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-      <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  );
-}
 
 // ── Main ───────────────────────────────────────────────────────────────────
 
@@ -190,20 +155,14 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
   const capture = useSceneMonitor(cameras, go2rtcBaseUrl, captureEnabled);
 
   // ── Intel panel state ─────────────────────────────────────────────────
-  const [entries,          setEntries]          = useState<IntelEntry[]>([]);
-  const [intelLoading,     setIntelLoading]     = useState(false);
-  const [intelExpanded,    setIntelExpanded]     = useState(true);
-  const [intelTab,         setIntelTab]         = useState<'now' | 'patterns' | 'log'>('now');
-  const [telegramSending,  setTelegramSending]  = useState(false);
-  const [telegramStatus,   setTelegramStatus]   = useState<'idle' | 'sent' | 'error'>('idle');
+  const [entries,      setEntries]      = useState<IntelEntry[]>([]);
+  const [intelLoading, setIntelLoading] = useState(false);
   const intelPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const latest = entries[0] ?? null;
 
   // Fetch latest intel entries
   const fetchIntel = useCallback(async () => {
     try {
-      const res  = await fetch('/api/intel-log?limit=10');
+      const res  = await fetch('/api/intel-log?limit=20');
       const data = (await res.json()) as { entries?: IntelEntry[] };
       if (data.entries) setEntries(data.entries);
     } catch { /* ignore */ }
@@ -236,42 +195,6 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
   useEffect(() => {
     if (capture.lastIntelAt) void fetchIntel();
   }, [capture.lastIntelAt, fetchIntel]);
-
-  // Send to Telegram
-  async function sendToTelegram() {
-    if (!latest || telegramSending) return;
-    setTelegramSending(true);
-    setTelegramStatus('idle');
-    try {
-      const lines: string[] = [
-        `🏠 <b>Security Intel — ${latest.period_label}</b>`,
-        `${latest.total_events} events · ${latest.face_count} people detected`,
-        '',
-        latest.summary,
-      ];
-      if (latest.activity_lines.length > 0) {
-        lines.push('', '<b>Activity:</b>');
-        latest.activity_lines.slice(0, 6).forEach((l) => lines.push(`• ${l}`));
-      }
-      if (latest.anomalies.length > 0) {
-        lines.push('', '<b>⚠ Anomalies:</b>');
-        latest.anomalies.forEach((a) => lines.push(`• ${a}`));
-      }
-      if (latest.patterns.length > 0) {
-        lines.push('', '<b>Patterns:</b>');
-        latest.patterns.slice(0, 3).forEach((p) => lines.push(`• ${p}`));
-      }
-      const res = await fetch('/api/telegram-notify', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text: lines.join('\n') }),
-      });
-      setTelegramStatus(res.ok ? 'sent' : 'error');
-    } catch { setTelegramStatus('error'); } finally {
-      setTelegramSending(false);
-      setTimeout(() => setTelegramStatus('idle'), 3000);
-    }
-  }
 
   function togglePanel(p: Panel) {
     setPanel((cur) => (cur === p ? 'none' : p));
@@ -307,8 +230,6 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
     { key: '2x2',  icon: <Grid2Icon />,  label: '2×2'  },
     { key: '3x2',  icon: <Grid3Icon />,  label: '3×2'  },
   ];
-
-  const cameraStateEntries = latest ? Object.entries(latest.camera_states) : [];
 
   return (
     <div className="h-screen bg-[#070b11] text-white flex flex-col overflow-hidden select-none">
@@ -398,13 +319,21 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="hidden md:inline">People</span>
           </button>
 
-          <button onClick={() => router.push('/summary')} title="Activity log & AI summary"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold
-                       transition-all bg-gradient-to-r from-violet-600/20 to-blue-600/20
-                       border border-violet-500/35 text-violet-300
-                       hover:from-violet-600/35 hover:to-blue-600/30 hover:border-violet-400/50">
-            <IconActivity />
-            <span>Activity &amp; AI</span>
+          <button onClick={() => togglePanel('intel')} title="Intelligence Log"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
+                        font-medium transition-all border relative ${
+              panel === 'intel'
+                ? 'bg-violet-600/20 text-violet-400 border-violet-500/40'
+                : 'text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]'
+            }`}>
+            <IconBrain />
+            <span className="hidden md:inline">Intel</span>
+            {entries[0]?.anomalies?.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full
+                               text-[8px] font-bold text-white flex items-center justify-center">
+                !
+              </span>
+            )}
           </button>
 
           <div className="w-px h-4 bg-white/[0.08] mx-1" />
@@ -471,212 +400,6 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
         )}
       </main>
 
-      {/* ── Intel Panel ── */}
-      <div className="flex-none border-t border-white/[0.06] bg-[#090e17]/90">
-
-        {/* Panel header */}
-        <div className="flex items-center gap-2 px-4 py-1.5">
-          {/* Toggle + label */}
-          <button
-            onClick={() => setIntelExpanded((e) => !e)}
-            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left"
-          >
-            <span className="flex items-center gap-1.5 text-violet-400 flex-none">
-              <IconBrain />
-              <span className="text-[11px] font-semibold tracking-tight">Intel Log</span>
-            </span>
-            {latest && (
-              <span className="text-[10px] text-white/20 tabular-nums flex-none">{fmtAgo(latest.timestamp)}</span>
-            )}
-            {latest?.anomalies?.length > 0 && (
-              <span className="flex items-center gap-1 text-[10px] text-amber-400/80 bg-amber-500/10
-                               border border-amber-500/25 rounded-full px-2 py-0.5 flex-none">
-                <IconWarning />
-                {latest.anomalies.length} anomal{latest.anomalies.length === 1 ? 'y' : 'ies'}
-              </span>
-            )}
-            {capture.intelUpdating && (
-              <span className="text-[10px] text-violet-400/50 animate-pulse flex-none">updating…</span>
-            )}
-            <span className="text-white/20 flex-none"><IconChevron up={intelExpanded} /></span>
-          </button>
-
-          {/* Tabs (only when expanded) */}
-          {intelExpanded && (
-            <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.06]
-                            rounded-lg p-0.5 flex-none">
-              {(['now', 'patterns', 'log'] as const).map((tab) => (
-                <button key={tab} onClick={() => setIntelTab(tab)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                    intelTab === tab
-                      ? 'bg-violet-600/70 text-white'
-                      : 'text-white/25 hover:text-white/60'
-                  }`}>
-                  {tab === 'now' ? 'Now' : tab === 'patterns' ? 'Patterns' : 'History'}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 flex-none">
-            <button onClick={() => void triggerManualIntel()} disabled={intelLoading || capture.intelUpdating}
-              title="Generate intel now"
-              className="p-1.5 rounded-lg text-white/25 hover:text-white/65 hover:bg-white/[0.06]
-                         transition-colors disabled:opacity-40">
-              <IconRefresh spinning={intelLoading || capture.intelUpdating} />
-            </button>
-            <button onClick={() => void sendToTelegram()} disabled={telegramSending || !latest}
-              title="Send to Telegram"
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium
-                          transition-all border disabled:opacity-40 ${
-                telegramStatus === 'sent'  ? 'bg-green-600/20 border-green-500/40 text-green-400' :
-                telegramStatus === 'error' ? 'bg-red-600/20 border-red-500/40 text-red-400' :
-                'bg-blue-600/10 border-blue-500/25 text-blue-400 hover:bg-blue-600/20 hover:border-blue-500/40'
-              }`}>
-              <IconSend />
-              {telegramStatus === 'sent' ? 'Sent!' : telegramStatus === 'error' ? 'Failed' : 'Telegram'}
-            </button>
-          </div>
-        </div>
-
-        {/* Panel body */}
-        {intelExpanded && (
-          <div className="px-4 pb-3 max-h-44 overflow-y-auto scrollbar-thin scrollbar-track-transparent
-                          scrollbar-thumb-white/10">
-
-            {/* ── Tab: Now ── */}
-            {intelTab === 'now' && (
-              entries.length === 0 ? (
-                <p className="text-[11px] text-white/20 py-1">
-                  {intelLoading ? 'Generating first intel report…' : 'No intel yet — first report generates in ~1 minute.'}
-                </p>
-              ) : (
-                <div className="grid gap-2">
-                  {/* Summary */}
-                  <p className="text-[11px] text-white/65 leading-relaxed">{latest?.summary}</p>
-
-                  {/* Two-column: activity lines + camera states */}
-                  <div className="grid gap-3" style={{ gridTemplateColumns: cameraStateEntries.length > 0 ? '1fr 1fr' : '1fr' }}>
-                    {/* Activity log */}
-                    {latest && latest.activity_lines.length > 0 && (
-                      <div>
-                        <div className="text-[9px] font-semibold text-white/20 uppercase tracking-wider mb-1">Recent Activity</div>
-                        <ul className="flex flex-col gap-0.5">
-                          {latest.activity_lines.slice(0, 8).map((line, i) => (
-                            <li key={i} className="text-[10px] text-white/45 flex gap-1.5 items-start">
-                              <span className="text-violet-500/50 flex-none mt-0.5">›</span>
-                              <span>{line}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Camera states */}
-                    {cameraStateEntries.length > 0 && (
-                      <div>
-                        <div className="text-[9px] font-semibold text-white/20 uppercase tracking-wider mb-1">Camera States</div>
-                        <ul className="flex flex-col gap-0.5">
-                          {cameraStateEntries.map(([cam, state]) => (
-                            <li key={cam} className="text-[10px] text-white/40 flex gap-1.5 items-start">
-                              <span className="text-blue-500/50 font-medium flex-none">{cam}:</span>
-                              <span className="text-white/35">{state}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Anomalies (highlighted) */}
-                  {latest && latest.anomalies.length > 0 && (
-                    <div className="bg-amber-500/[0.07] border border-amber-500/20 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-1.5 mb-1.5 text-amber-400/80">
-                        <IconWarning />
-                        <span className="text-[9px] font-semibold uppercase tracking-wider">Anomalies Detected</span>
-                      </div>
-                      <ul className="flex flex-col gap-1">
-                        {latest.anomalies.map((a, i) => (
-                          <li key={i} className="text-[10px] text-amber-300/70 flex gap-1.5 items-start">
-                            <span className="flex-none mt-0.5">⚠</span>
-                            <span>{a}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Change from previous */}
-                  {latest?.change_from_previous && (
-                    <p className="text-[10px] text-white/25 italic border-l-2 border-white/10 pl-2">
-                      Changed: {latest.change_from_previous}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-3 text-[10px] text-white/15">
-                    <span>{latest?.total_events ?? 0} events</span>
-                    <span>{latest?.face_count ?? 0} people</span>
-                    <span>{entries.length} log entries</span>
-                  </div>
-                </div>
-              )
-            )}
-
-            {/* ── Tab: Patterns ── */}
-            {intelTab === 'patterns' && (
-              <div className="flex flex-col gap-2">
-                {/* Collect all unique patterns across entries */}
-                {(() => {
-                  const allPatterns = Array.from(
-                    new Set(entries.flatMap((e) => e.patterns ?? [])),
-                  ).filter(Boolean);
-                  return allPatterns.length === 0 ? (
-                    <p className="text-[11px] text-white/20 py-1">
-                      Patterns emerge after several intel cycles. Check back later.
-                    </p>
-                  ) : (
-                    allPatterns.map((p, i) => (
-                      <div key={i} className="flex gap-2 items-start">
-                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500/60 flex-none mt-1.5" />
-                        <span className="text-[11px] text-white/55">{p}</span>
-                      </div>
-                    ))
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* ── Tab: History ── */}
-            {intelTab === 'log' && (
-              <div className="flex flex-col gap-1.5">
-                {entries.length === 0 ? (
-                  <p className="text-[11px] text-white/20 py-1">No history yet.</p>
-                ) : entries.map((entry) => (
-                  <div key={entry.id}
-                    className="flex gap-2.5 items-start py-1.5 border-b border-white/[0.04] last:border-0">
-                    <div className="flex-none text-[9px] text-white/20 tabular-nums pt-0.5 w-12 text-right">
-                      {fmtAgo(entry.timestamp)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] text-white/55 leading-snug">{entry.summary}</p>
-                      {entry.anomalies.length > 0 && (
-                        <span className="text-[9px] text-amber-400/70 mt-0.5 block">
-                          ⚠ {entry.anomalies.join(' · ')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-none text-[9px] text-white/15 text-right">
-                      {entry.total_events}ev · {entry.face_count}p
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* ── Side panels ── */}
       <ActivityFeed
         open={panel === 'activity'}
@@ -687,6 +410,15 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
       />
       <KnownPeoplePanel open={panel === 'people'} onClose={() => setPanel('none')} />
       <CameraWatchLog   open={panel === 'ailog'}  onClose={() => setPanel('none')} />
+      <IntelPanel
+        open={panel === 'intel'}
+        onClose={() => setPanel('none')}
+        intelUpdating={capture.intelUpdating}
+        lastIntelAt={capture.lastIntelAt}
+        entries={entries}
+        loading={intelLoading}
+        onRefresh={() => void triggerManualIntel()}
+      />
 
       {/* ── Fullscreen overlay ── */}
       {focused && (
