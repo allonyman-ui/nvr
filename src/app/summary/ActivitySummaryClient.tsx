@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ActivityEvent } from '@/lib/supabase';
+import type { ActivityEvent, IntelEntry } from '@/lib/supabase';
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -131,6 +131,18 @@ const Icon = {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
       <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+    </svg>
+  ),
+  Brain: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96-.46 2.5 2.5 0 01-1.07-4.8A3 3 0 015 11V9a3 3 0 013-3 2.5 2.5 0 011.5-4z" />
+      <path d="M14.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 004.96-.46 2.5 2.5 0 001.07-4.8A3 3 0 0119 11V9a3 3 0 00-3-3 2.5 2.5 0 00-1.5-4z" />
+    </svg>
+  ),
+  Warning: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   ),
 };
@@ -536,11 +548,456 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
 }
 
 // ─────────────────────────────────────────────────────────────
+// Intel Log view
+// ─────────────────────────────────────────────────────────────
+
+function IntelLogView() {
+  const [entries, setEntries] = useState<IntelEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [buildStep, setBuildStep] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  async function doFetch(): Promise<IntelEntry[]> {
+    const res = await fetch('/api/intel-log?limit=50');
+    if (!res.ok) return [];
+    const data = (await res.json()) as { entries?: IntelEntry[] };
+    const fetched = data.entries ?? [];
+    setEntries(fetched);
+    return fetched;
+  }
+
+  async function doGenerate() {
+    const res = await fetch('/api/intel-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ frames: [], trigger: 'manual' }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? `Server error ${res.status}`);
+    }
+  }
+
+  // On mount: load entries, auto-generate if empty, poll every 60s
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const fetched = await doFetch();
+        if (!cancelled && fetched.length === 0) {
+          setGenerating(true);
+          try {
+            await doGenerate();
+            if (!cancelled) await doFetch();
+          } catch (e) {
+            if (!cancelled) setGenError(e instanceof Error ? e.message : 'Failed to generate report');
+          } finally {
+            if (!cancelled) setGenerating(false);
+          }
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    const pollId = setInterval(() => { void doFetch(); }, 60_000);
+    return () => { cancelled = true; clearInterval(pollId); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleGenerate() {
+    if (generating || isBuilding) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      await doGenerate();
+      await doFetch();
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleBuildHistory() {
+    if (generating || isBuilding) return;
+    setIsBuilding(true);
+    setGenError(null);
+    for (let i = 0; i < 5; i++) {
+      setBuildStep(i + 1);
+      try {
+        await doGenerate();
+        await doFetch();
+      } catch (e) {
+        setGenError(e instanceof Error ? e.message : 'Build error');
+        break;
+      }
+    }
+    setIsBuilding(false);
+    setBuildStep(0);
+  }
+
+  const latest = entries[0] ?? null;
+  const older = entries.slice(1);
+  const totalAnomalies = entries.slice(0, 3).reduce((s, e) => s + e.anomalies.length, 0);
+
+  // Pattern grouping across last 5 entries
+  const recentPatterns = entries.slice(0, 5).flatMap((e) => e.patterns);
+  const grouped = {
+    confirmed:  recentPatterns.filter((p) => p.startsWith('CONFIRMED:')).map((p) => p.replace(/^CONFIRMED:\s*/, '')),
+    new:        recentPatterns.filter((p) => p.startsWith('NEW:')).map((p) => p.replace(/^NEW:\s*/, '')),
+    insight:    recentPatterns.filter((p) => p.startsWith('INSIGHT:')).map((p) => p.replace(/^INSIGHT:\s*/, '')),
+    prediction: recentPatterns.filter((p) => p.startsWith('PREDICTION:')).map((p) => p.replace(/^PREDICTION:\s*/, '')),
+  };
+  const hasPatterns = Object.values(grouped).some((g) => g.length > 0);
+
+  // ── Loading state ──────────────────────────────────────────
+  if (loading && entries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-5">
+        <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
+        </div>
+        <p className="text-white/40 text-[14px]">Loading intelligence log…</p>
+      </div>
+    );
+  }
+
+  // ── Auto-generating first report ──────────────────────────
+  if (entries.length === 0 && generating) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-5">
+        <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400/60">
+          <div style={{ animation: 'spin 2s linear infinite' }}><Icon.Brain /></div>
+        </div>
+        <div className="text-center">
+          <p className="text-white/60 text-[14px] font-medium">Generating first intelligence report…</p>
+          <p className="text-white/25 text-[12px] mt-1">Analysing camera feeds and recent activity</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Empty state ────────────────────────────────────────────
+  if (entries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-4 max-w-sm mx-auto text-center">
+        <div className="w-20 h-20 rounded-full bg-violet-500/[0.07] border border-violet-500/15 flex items-center justify-center text-violet-400/30">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96-.46 2.5 2.5 0 01-1.07-4.8A3 3 0 015 11V9a3 3 0 013-3 2.5 2.5 0 011.5-4z" />
+            <path d="M14.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 004.96-.46 2.5 2.5 0 001.07-4.8A3 3 0 0119 11V9a3 3 0 00-3-3 2.5 2.5 0 00-1.5-4z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-white/35 text-[14px] font-medium mb-1">No intelligence reports yet</p>
+          <p className="text-white/15 text-[12px] leading-relaxed">
+            Reports auto-generate every 5 minutes when the dashboard is open, or generate one now.
+          </p>
+        </div>
+        {genError && (
+          <div className="w-full flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400/80 text-[11px] text-left">
+            <span className="font-bold mt-px flex-none">!</span>
+            <span>{genError}</span>
+          </div>
+        )}
+        <button onClick={() => void handleGenerate()} disabled={generating}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600/20 border border-violet-500/30
+                     text-violet-400 text-[12px] font-medium hover:bg-violet-600/30 transition-all disabled:opacity-50">
+          {generating
+            ? <><div className="w-3.5 h-3.5 border border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</>
+            : <><Icon.Brain /> Generate First Report</>
+          }
+        </button>
+      </div>
+    );
+  }
+
+  // ── Main content ───────────────────────────────────────────
+  return (
+    <div className="space-y-5 max-w-4xl">
+
+      {/* ── Action bar ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => void handleGenerate()} disabled={generating || isBuilding}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-medium
+                     bg-violet-600/15 border border-violet-500/25 text-violet-400
+                     hover:bg-violet-600/25 transition-all disabled:opacity-50">
+          {generating
+            ? <><div className="w-3 h-3 border border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</>
+            : <><Icon.Brain /> Generate Report</>
+          }
+        </button>
+        <button onClick={() => void handleBuildHistory()} disabled={generating || isBuilding}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-medium
+                     bg-white/[0.04] border border-white/[0.07] text-white/40
+                     hover:bg-white/[0.07] hover:text-white/60 transition-all disabled:opacity-50">
+          {isBuilding ? `Building… ${buildStep}/5` : 'Build History ×5'}
+        </button>
+        {latest && (
+          <span className="text-[10px] text-white/20 ml-auto tabular-nums">
+            Last report: {timeAgo(latest.timestamp)}
+          </span>
+        )}
+      </div>
+
+      {/* ── Error banner ── */}
+      {genError && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+          <span className="font-bold text-red-400 mt-px flex-none text-[13px]">!</span>
+          <div>
+            <p className="text-[12px] font-medium text-red-400">Generation failed</p>
+            <p className="text-[11px] mt-0.5 text-red-400/70">{genError}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Reports', value: entries.length, sub: 'stored', color: 'violet' as const },
+          { label: 'Events', value: entries.slice(0, 5).reduce((s, e) => s + e.total_events, 0), sub: 'last 5 reports', color: 'blue' as const },
+          { label: 'Anomalies', value: totalAnomalies, sub: 'last 3 reports', color: 'amber' as const },
+          { label: 'Faces', value: entries.slice(0, 5).reduce((s, e) => s + e.face_count, 0), sub: 'last 5 reports', color: 'purple' as const },
+        ].map(({ label, value, sub, color }) => (
+          <div key={label}
+            className={`relative overflow-hidden bg-white/[0.025] border rounded-2xl px-4 py-3.5 ${
+              color === 'violet' ? 'border-violet-500/[0.12]' :
+              color === 'blue'   ? 'border-blue-500/[0.12]' :
+              color === 'amber'  ? 'border-amber-500/[0.12]' : 'border-purple-500/[0.12]'
+            }`}>
+            <p className={`text-2xl font-bold tabular-nums ${
+              color === 'violet' ? 'text-violet-400' :
+              color === 'blue'   ? 'text-blue-400' :
+              color === 'amber'  ? 'text-amber-400' : 'text-purple-400'
+            }`}>{value}</p>
+            <p className="text-[10px] font-semibold text-white/40 mt-0.5">{label}</p>
+            <p className="text-[9px] text-white/15 mt-0.5">{sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Latest report ── */}
+      {latest && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500/8 to-blue-500/4 border border-violet-500/[0.18] p-6">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-violet-500/5 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center text-violet-400 flex-none">
+              <Icon.Brain />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <p className="text-[13px] font-semibold text-white/85">{latest.period_label}</p>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider border ${
+                  latest.trigger === 'motion'    ? 'bg-amber-500/15 border-amber-500/25 text-amber-400' :
+                  latest.trigger === 'manual'    ? 'bg-blue-500/15 border-blue-500/25 text-blue-400' :
+                  latest.trigger === 'scheduled' ? 'bg-green-500/15 border-green-500/25 text-green-400' :
+                  'bg-white/5 border-white/10 text-white/30'
+                }`}>{latest.trigger}</span>
+              </div>
+              <p className="text-[10px] text-white/25">
+                {timeAgo(latest.timestamp)} · {latest.total_events} events · {latest.face_count} faces
+              </p>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <p className="text-[14px] text-white/80 leading-relaxed mb-4">{latest.summary}</p>
+
+          {/* Change from previous */}
+          {latest.change_from_previous && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-4">
+              <span className="text-[9px] font-bold text-white/25 uppercase tracking-widest mt-0.5 flex-none">Δ</span>
+              <p className="text-[12px] text-white/50 leading-relaxed italic">{latest.change_from_previous}</p>
+            </div>
+          )}
+
+          {/* Camera states */}
+          {Object.keys(latest.camera_states).length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(latest.camera_states).map(([cam, desc]) => (
+                <div key={cam} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+                  <div className="flex-none w-5 h-5 rounded-md bg-blue-500/10 border border-blue-500/15 flex items-center justify-center text-blue-400/70 mt-0.5">
+                    <Icon.Camera />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-semibold text-blue-400/60 uppercase tracking-wider mb-0.5 truncate">{cam}</p>
+                    <p className="text-[11px] text-white/55 leading-snug line-clamp-2">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Anomalies ── */}
+      {latest && latest.anomalies.length > 0 && (
+        <div className="rounded-2xl bg-amber-500/[0.06] border border-amber-500/20 p-5">
+          <div className="flex items-center gap-2 mb-3.5">
+            <div className="w-6 h-6 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400">
+              <Icon.Warning />
+            </div>
+            <p className="text-[12px] font-semibold text-amber-400/80 uppercase tracking-wider">Anomalies Detected</p>
+          </div>
+          <ul className="space-y-2">
+            {latest.anomalies.map((a, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="flex-none w-1.5 h-1.5 rounded-full bg-amber-500/60 mt-[7px]" />
+                <span className="text-[13px] text-amber-400/80 leading-relaxed">{a}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ── Activity log ── */}
+      {latest && latest.activity_lines.length > 0 && (
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.07] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center text-green-400">
+              <Icon.Timeline />
+            </div>
+            <p className="text-[12px] font-semibold text-white/50 uppercase tracking-wider">Activity Log</p>
+            <span className="ml-auto text-[9px] text-white/20 bg-white/[0.04] border border-white/[0.06] rounded-full px-2 py-0.5">
+              {latest.activity_lines.length} events
+            </span>
+          </div>
+          <div className="space-y-1.5 max-h-56 overflow-y-auto scrollbar-none pr-1">
+            {latest.activity_lines.map((line, i) => (
+              <div key={i} className="flex items-start gap-2.5 py-1">
+                <span className="flex-none w-1 h-1 rounded-full bg-white/15 mt-[7px]" />
+                <span className="text-[11px] text-white/45 leading-relaxed font-mono">{line}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Patterns ── */}
+      {hasPatterns && (
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.07] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-lg bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-400">
+              <Icon.Check />
+            </div>
+            <p className="text-[12px] font-semibold text-white/50 uppercase tracking-wider">Patterns</p>
+            <span className="text-[9px] text-white/15 ml-2">from last {Math.min(entries.length, 5)} reports</span>
+          </div>
+          <div className="space-y-4">
+            {([
+              { key: 'confirmed',  label: 'Confirmed',  items: grouped.confirmed,  textCls: 'text-emerald-400', borderCls: 'bg-emerald-500/[0.06] border-emerald-500/15 text-emerald-400/80' },
+              { key: 'new',        label: 'New',        items: grouped.new,        textCls: 'text-blue-400',    borderCls: 'bg-blue-500/[0.06] border-blue-500/15 text-blue-400/80'       },
+              { key: 'insight',    label: 'Insight',    items: grouped.insight,    textCls: 'text-violet-400',  borderCls: 'bg-violet-500/[0.06] border-violet-500/15 text-violet-400/80'  },
+              { key: 'prediction', label: 'Prediction', items: grouped.prediction, textCls: 'text-amber-400',   borderCls: 'bg-amber-500/[0.06] border-amber-500/15 text-amber-400/80'    },
+            ] as const).filter(({ items }) => items.length > 0).map(({ key, label, items, textCls, borderCls }) => (
+              <div key={key}>
+                <p className={`text-[9px] font-bold uppercase tracking-widest mb-2 ${textCls}`}>{label}</p>
+                <div className="space-y-1.5">
+                  {items.map((item, i) => (
+                    <div key={i} className={`flex items-start gap-2 px-3 py-2 rounded-xl border ${borderCls}`}>
+                      <span className="flex-none w-1 h-1 rounded-full bg-current opacity-50 mt-[7px]" />
+                      <span className="text-[12px] leading-relaxed">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── History ── */}
+      {older.length > 0 && (
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.07] overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.05]">
+            <div className="w-6 h-6 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/35">
+              <Icon.Timeline />
+            </div>
+            <p className="text-[12px] font-semibold text-white/50 uppercase tracking-wider">History</p>
+            <span className="ml-auto text-[9px] text-white/20 bg-white/[0.04] border border-white/[0.06] rounded-full px-2 py-0.5">
+              {older.length} earlier reports
+            </span>
+          </div>
+          <div className="divide-y divide-white/[0.04]">
+            {older.map((entry) => (
+              <div key={entry.id}>
+                <button
+                  onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                  className="w-full flex items-start gap-4 px-5 py-3.5 text-left hover:bg-white/[0.02] transition-colors">
+                  <div className="flex-none pt-1.5">
+                    <div className="w-2 h-2 rounded-full bg-violet-500/25 border border-violet-500/40" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-[12px] font-medium text-white/55">{entry.period_label}</span>
+                      <span className={`text-[9px] font-semibold uppercase ${
+                        entry.trigger === 'motion' ? 'text-amber-400/50' :
+                        entry.trigger === 'manual' ? 'text-blue-400/50' : 'text-white/20'
+                      }`}>{entry.trigger}</span>
+                      {entry.anomalies.length > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/20 text-amber-400 text-[8px] font-bold">
+                          {entry.anomalies.length} anomaly
+                        </span>
+                      )}
+                      <span className="ml-auto text-[9px] text-white/15 tabular-nums flex-none">{timeAgo(entry.timestamp)}</span>
+                    </div>
+                    <p className="text-[12px] text-white/30 leading-relaxed line-clamp-2">{entry.summary}</p>
+                  </div>
+                  <span className="text-white/15 text-[9px] flex-none pt-1.5">
+                    {expandedId === entry.id ? '▲' : '▼'}
+                  </span>
+                </button>
+                {expandedId === entry.id && (
+                  <div className="px-5 pb-4 ml-10 space-y-3">
+                    {entry.change_from_previous && (
+                      <p className="text-[11px] text-white/35 italic border-l-2 border-white/[0.08] pl-3 leading-relaxed">
+                        {entry.change_from_previous}
+                      </p>
+                    )}
+                    {Object.keys(entry.camera_states).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(entry.camera_states).map(([cam, desc]) => (
+                          <div key={cam} className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.05] text-[10px]">
+                            <span className="text-blue-400/40 flex-none mt-px"><Icon.Camera /></span>
+                            <span>
+                              <span className="font-medium text-white/40">{cam}: </span>
+                              <span className="text-white/30">{desc}</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {entry.anomalies.length > 0 && (
+                      <div className="space-y-1">
+                        {entry.anomalies.map((a, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[11px] text-amber-400/60">
+                            <Icon.Warning /> <span>{a}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Main page
 // ─────────────────────────────────────────────────────────────
 
 type TimeRange = 1 | 6 | 12 | 24;
-type Tab = 'events' | 'summary';
+type Tab = 'events' | 'summary' | 'intel';
 
 export default function ActivitySummaryClient() {
   const router = useRouter();
@@ -554,6 +1011,17 @@ export default function ActivitySummaryClient() {
   const [tab, setTab] = useState<Tab>('events');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [summaryKey, setSummaryKey] = useState(0); // force re-mount summary on data change
+
+  // Read ?tab= from URL on mount to pre-select tab
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get('tab');
+      if (t === 'intel' || t === 'summary' || t === 'events') {
+        setTab(t as Tab);
+      }
+    }
+  }, []);
 
   const load = useCallback(async (h: TimeRange, faces: boolean) => {
     setLoading(true);
@@ -616,58 +1084,69 @@ export default function ActivitySummaryClient() {
             </div>
           </div>
 
-          {/* Time range */}
-          <div className="flex items-center gap-0.5 bg-white/[0.05] rounded-xl p-0.5 flex-none">
-            {TIME_RANGES.map((h) => (
-              <button key={h} onClick={() => setHours(h)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                  hours === h ? 'bg-white/10 text-white shadow-sm' : 'text-white/35 hover:text-white/65'
-                }`}>
-                {h}h
-              </button>
-            ))}
-          </div>
+          {/* Time range — hidden on intel tab */}
+          {tab !== 'intel' && (
+            <div className="flex items-center gap-0.5 bg-white/[0.05] rounded-xl p-0.5 flex-none">
+              {TIME_RANGES.map((h) => (
+                <button key={h} onClick={() => setHours(h)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    hours === h ? 'bg-white/10 text-white shadow-sm' : 'text-white/35 hover:text-white/65'
+                  }`}>
+                  {h}h
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Faces toggle */}
-          <button onClick={() => setFacesOnly((f) => !f)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium
-                        border transition-all flex-none ${
-              facesOnly
-                ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                : 'bg-white/[0.04] border-white/[0.07] text-white/35 hover:text-white/65'
-            }`}>
-            <Icon.User /> Faces
-          </button>
+          {/* Faces toggle — events tab only */}
+          {tab === 'events' && (
+            <button onClick={() => setFacesOnly((f) => !f)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium
+                          border transition-all flex-none ${
+                facesOnly
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                  : 'bg-white/[0.04] border-white/[0.07] text-white/35 hover:text-white/65'
+              }`}>
+              <Icon.User /> Faces
+            </button>
+          )}
 
           {/* Refresh */}
-          <button onClick={() => void load(hours, facesOnly)} disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium
-                       bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white/70
-                       disabled:opacity-40 transition-all flex-none">
-            <Icon.Refresh spin={loading} />
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
+          {tab !== 'intel' && (
+            <button onClick={() => void load(hours, facesOnly)} disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium
+                         bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white/70
+                         disabled:opacity-40 transition-all flex-none">
+              <Icon.Refresh spin={loading} />
+              {loading ? 'Loading…' : 'Refresh'}
+            </button>
+          )}
         </div>
 
         {/* ── Tab bar ── */}
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 border-t border-white/[0.04] pt-0">
           {([
-            { key: 'events' as Tab, label: 'Events', icon: <Icon.Grid /> },
-            { key: 'summary' as Tab, label: 'AI Summary', icon: <Icon.Sparkle /> },
-          ] as const).map(({ key, label, icon }) => (
+            { key: 'events'  as Tab, label: 'Events',    icon: <Icon.Grid />,    badge: null },
+            { key: 'summary' as Tab, label: 'AI Summary', icon: <Icon.Sparkle />, badge: 'AI' },
+            { key: 'intel'   as Tab, label: 'Intel Log',  icon: <Icon.Brain />,   badge: 'LIVE' },
+          ] as const).map(({ key, label, icon, badge }) => (
             <button key={key} onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 text-[12px] font-medium transition-all
                           border-b-2 -mb-px ${
                 tab === key
-                  ? key === 'summary'
-                    ? 'text-violet-400 border-violet-500/70'
-                    : 'text-white/90 border-white/30'
+                  ? key === 'events'
+                    ? 'text-white/90 border-white/30'
+                    : 'text-violet-400 border-violet-500/70'
                   : 'text-white/30 border-transparent hover:text-white/60 hover:border-white/10'
               }`}>
               {icon} {label}
-              {key === 'summary' && (
-                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-[8px] font-semibold uppercase tracking-wider">
-                  AI
+              {badge && (
+                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full border text-[8px] font-semibold uppercase tracking-wider ${
+                  key === 'intel'
+                    ? 'bg-violet-500/20 border-violet-500/30 text-violet-400'
+                    : 'bg-violet-500/20 border-violet-500/30 text-violet-400'
+                }`}>
+                  {badge}
                 </span>
               )}
             </button>
@@ -705,8 +1184,8 @@ export default function ActivitySummaryClient() {
       {/* ── Body ── */}
       <main className="max-w-7xl mx-auto px-4 py-6">
 
-        {/* Stats */}
-        <StatsBar events={filtered} hours={hours} />
+        {/* Stats — hidden on intel tab (it has its own stats) */}
+        {tab !== 'intel' && <StatsBar events={filtered} hours={hours} />}
 
         {/* ── Events Tab ── */}
         {tab === 'events' && (
@@ -757,6 +1236,9 @@ export default function ActivitySummaryClient() {
         {tab === 'summary' && (
           <AISummaryView key={summaryKey} events={filtered} hours={hours} />
         )}
+
+        {/* ── Intel Log Tab ── */}
+        {tab === 'intel' && <IntelLogView />}
       </main>
 
       {lightbox && <Lightbox event={lightbox} onClose={() => setLightbox(null)} />}

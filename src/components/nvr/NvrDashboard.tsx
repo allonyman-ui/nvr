@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import CameraPlayer from './CameraPlayer';
 import CameraWatchLog from './CameraWatchLog';
 import ActivityFeed from './ActivityFeed';
 import KnownPeoplePanel from './KnownPeoplePanel';
-import IntelPanel from './IntelPanel';
 import { useSceneMonitor } from '@/hooks/useSceneMonitor';
-import type { IntelEntry } from '@/lib/supabase';
 
 interface Camera {
   id: string;
@@ -23,7 +21,7 @@ interface NvrDashboardProps {
 }
 
 type Layout = 'auto' | '1x1' | '2x2' | '3x2';
-type Panel  = 'none' | 'ailog' | 'activity' | 'people' | 'intel';
+type Panel  = 'none' | 'ailog' | 'activity' | 'people';
 
 function resolveLayout(layout: Layout, count: number): [number, number] {
   if (layout === '1x1') return [1, 1];
@@ -154,55 +152,6 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
   // ── Scene monitor: 5s motion capture + 5-min intel updates ────────────
   const capture = useSceneMonitor(cameras, go2rtcBaseUrl, captureEnabled);
 
-  // ── Intel panel state ─────────────────────────────────────────────────
-  const [entries,      setEntries]      = useState<IntelEntry[]>([]);
-  const [intelLoading, setIntelLoading] = useState(false);
-  const [intelError,   setIntelError]   = useState<string | null>(null);
-  const intelPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Fetch latest intel entries
-  const fetchIntel = useCallback(async () => {
-    try {
-      const res  = await fetch('/api/intel-log?limit=20');
-      const data = (await res.json()) as { entries?: IntelEntry[]; error?: string };
-      if (data.entries) setEntries(data.entries);
-    } catch { /* ignore */ }
-  }, []);
-
-  // Trigger a manual intel update (fires the full analysis)
-  const triggerManualIntel = useCallback(async () => {
-    if (intelLoading) return;
-    setIntelLoading(true);
-    setIntelError(null);
-    try {
-      const res = await fetch('/api/intel-update', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ frames: [], trigger: 'manual' }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        setIntelError(body.error ?? `Server error ${res.status}`);
-      }
-      await fetchIntel();
-    } catch (e) {
-      setIntelError(e instanceof Error ? e.message : 'Network error');
-    } finally {
-      setIntelLoading(false);
-    }
-  }, [intelLoading, fetchIntel]);
-
-  // On mount: load intel + poll every 30 s
-  useEffect(() => {
-    void fetchIntel();
-    intelPollRef.current = setInterval(() => void fetchIntel(), 30_000);
-    return () => { if (intelPollRef.current) clearInterval(intelPollRef.current); };
-  }, [fetchIntel]);
-
-  // Re-fetch when hook fires a new intel update
-  useEffect(() => {
-    if (capture.lastIntelAt) void fetchIntel();
-  }, [capture.lastIntelAt, fetchIntel]);
 
   function togglePanel(p: Panel) {
     setPanel((cur) => (cur === p ? 'none' : p));
@@ -327,21 +276,12 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="hidden md:inline">People</span>
           </button>
 
-          <button onClick={() => togglePanel('intel')} title="Intelligence Log"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
-                        font-medium transition-all border relative ${
-              panel === 'intel'
-                ? 'bg-violet-600/20 text-violet-400 border-violet-500/40'
-                : 'text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]'
-            }`}>
+          <button onClick={() => router.push('/summary?tab=intel')} title="Intelligence Log"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
+                       font-medium transition-all border
+                       text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]">
             <IconBrain />
             <span className="hidden md:inline">Intel</span>
-            {entries[0]?.anomalies?.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full
-                               text-[8px] font-bold text-white flex items-center justify-center">
-                !
-              </span>
-            )}
           </button>
 
           <div className="w-px h-4 bg-white/[0.08] mx-1" />
@@ -418,16 +358,6 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
       />
       <KnownPeoplePanel open={panel === 'people'} onClose={() => setPanel('none')} />
       <CameraWatchLog   open={panel === 'ailog'}  onClose={() => setPanel('none')} />
-      <IntelPanel
-        open={panel === 'intel'}
-        onClose={() => setPanel('none')}
-        intelUpdating={capture.intelUpdating}
-        lastIntelAt={capture.lastIntelAt}
-        entries={entries}
-        loading={intelLoading}
-        refreshError={intelError}
-        onRefresh={triggerManualIntel}
-      />
 
       {/* ── Fullscreen overlay ── */}
       {focused && (
