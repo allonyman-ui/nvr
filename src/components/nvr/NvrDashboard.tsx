@@ -157,13 +157,14 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
   // ── Intel panel state ─────────────────────────────────────────────────
   const [entries,      setEntries]      = useState<IntelEntry[]>([]);
   const [intelLoading, setIntelLoading] = useState(false);
+  const [intelError,   setIntelError]   = useState<string | null>(null);
   const intelPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch latest intel entries
   const fetchIntel = useCallback(async () => {
     try {
       const res  = await fetch('/api/intel-log?limit=20');
-      const data = (await res.json()) as { entries?: IntelEntry[] };
+      const data = (await res.json()) as { entries?: IntelEntry[]; error?: string };
       if (data.entries) setEntries(data.entries);
     } catch { /* ignore */ }
   }, []);
@@ -172,14 +173,21 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
   const triggerManualIntel = useCallback(async () => {
     if (intelLoading) return;
     setIntelLoading(true);
+    setIntelError(null);
     try {
-      await fetch('/api/intel-update', {
+      const res = await fetch('/api/intel-update', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ frames: [], trigger: 'manual' }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setIntelError(body.error ?? `Server error ${res.status}`);
+      }
       await fetchIntel();
-    } catch { /* ignore */ } finally {
+    } catch (e) {
+      setIntelError(e instanceof Error ? e.message : 'Network error');
+    } finally {
       setIntelLoading(false);
     }
   }, [intelLoading, fetchIntel]);
@@ -417,7 +425,8 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
         lastIntelAt={capture.lastIntelAt}
         entries={entries}
         loading={intelLoading}
-        onRefresh={() => void triggerManualIntel()}
+        refreshError={intelError}
+        onRefresh={triggerManualIntel}
       />
 
       {/* ── Fullscreen overlay ── */}

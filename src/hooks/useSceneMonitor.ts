@@ -195,8 +195,8 @@ export function useSceneMonitor(
     void captureAll(); // immediate first capture
     motionInterval.current = setInterval(() => void captureAll(), MOTION_INTERVAL_MS);
 
-    // First intel update after 60 s — let frames + events accumulate first
-    intelTimer.current = setTimeout(() => void triggerIntelUpdate(), 60_000);
+    // First intel update after 10 s — just enough for the initial frame capture to land
+    intelTimer.current = setTimeout(() => void triggerIntelUpdate(), 10_000);
 
     return () => {
       if (motionInterval.current) clearInterval(motionInterval.current);

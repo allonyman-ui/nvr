@@ -124,6 +124,14 @@ function IconCamera() {
     </svg>
   );
 }
+function IconSparkle() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.4 2.4-7.4L2 9.4h7.6z" />
+    </svg>
+  );
+}
 
 // ── History entry row ─────────────────────────────────────────────────────────
 
@@ -139,7 +147,7 @@ function HistoryEntry({ entry }: { entry: IntelEntry }) {
         className="w-full text-left flex items-start gap-3 px-3 py-2.5"
       >
         {/* Timeline dot */}
-        <div className="flex-none flex flex-col items-center pt-1 gap-1">
+        <div className="flex-none flex flex-col items-center pt-1">
           <span className={`w-2 h-2 rounded-full flex-none ${
             isSynthesis ? 'bg-violet-400' : 'bg-white/20'
           }`} />
@@ -154,6 +162,13 @@ function HistoryEntry({ entry }: { entry: IntelEntry }) {
                                bg-violet-500/15 border border-violet-500/25 text-violet-400
                                rounded-full px-1.5 py-0.5">
                 Daily
+              </span>
+            )}
+            {entry.trigger === 'manual' && (
+              <span className="text-[8px] font-semibold tracking-wider uppercase
+                               bg-white/[0.06] border border-white/[0.1] text-white/30
+                               rounded-full px-1.5 py-0.5">
+                Manual
               </span>
             )}
             {entry.anomalies.length > 0 && (
@@ -190,6 +205,20 @@ function HistoryEntry({ entry }: { entry: IntelEntry }) {
               ))}
             </ul>
           )}
+          {entry.patterns.length > 0 && (
+            <ul className="space-y-1">
+              {entry.patterns.slice(0, 4).map((p, i) => {
+                const type  = patternPrefix(p);
+                const style = PREFIX_STYLES[type];
+                return (
+                  <li key={i} className="flex gap-1.5 items-start">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-none mt-1.5 ${style.dot}`} />
+                    <span className="text-[10px] text-white/35 leading-snug">{stripPrefix(p)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           {entry.anomalies.length > 0 && (
             <div className="rounded-lg bg-amber-500/[0.07] border border-amber-500/15 px-2.5 py-2 space-y-1">
               {entry.anomalies.map((a, i) => (
@@ -219,26 +248,55 @@ interface Props {
   lastIntelAt: Date | null;
   entries: IntelEntry[];
   loading: boolean;
-  onRefresh: () => void;
+  refreshError?: string | null;
+  onRefresh: () => Promise<void>;
 }
 
 export default function IntelPanel({
-  open, onClose, intelUpdating, lastIntelAt, entries, loading, onRefresh,
+  open, onClose, intelUpdating, lastIntelAt, entries, loading, refreshError, onRefresh,
 }: Props) {
   const [tab,             setTab]             = useState<Tab>('now');
   const [telegramSending, setTelegramSending] = useState(false);
   const [telegramStatus,  setTelegramStatus]  = useState<'idle' | 'sent' | 'error'>('idle');
   const [telegramError,   setTelegramError]   = useState('');
+  const [isBuilding,      setIsBuilding]      = useState(false);
+  const [buildStep,       setBuildStep]       = useState(0);
+  const buildSteps = 5;
+
   const prevIntelAt = useRef<Date | null>(null);
+  const nowRef      = useRef<HTMLDivElement>(null);
+
+  // Auto-trigger a first refresh when panel opens with no data
+  useEffect(() => {
+    if (!open || entries.length > 0 || loading || isBuilding) return;
+    const t = setTimeout(() => void onRefresh(), 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Scroll to top on new intel update
-  const nowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (lastIntelAt && lastIntelAt !== prevIntelAt.current) {
       prevIntelAt.current = lastIntelAt;
       if (tab === 'now') nowRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [lastIntelAt, tab]);
+
+  // Build history — fire N sequential intel updates to populate the log quickly
+  const buildHistory = useCallback(async () => {
+    if (isBuilding) return;
+    setIsBuilding(true);
+    setBuildStep(0);
+    try {
+      for (let i = 0; i < buildSteps; i++) {
+        await onRefresh();
+        setBuildStep(i + 1);
+      }
+    } finally {
+      setIsBuilding(false);
+      setBuildStep(0);
+    }
+  }, [isBuilding, onRefresh]);
 
   const latest = entries[0] ?? null;
 
@@ -284,7 +342,7 @@ export default function IntelPanel({
       setTelegramStatus('error');
     } finally {
       setTelegramSending(false);
-      setTimeout(() => { setTelegramStatus('idle'); setTelegramError(''); }, 5000);
+      setTimeout(() => { setTelegramStatus('idle'); setTelegramError(''); }, 6000);
     }
   }, [latest, telegramSending]);
 
@@ -301,6 +359,8 @@ export default function IntelPanel({
   const totalFaces   = latest?.face_count   ?? 0;
   const totalEntries = entries.length;
 
+  const isBusy = loading || intelUpdating || isBuilding;
+
   if (!open) return null;
 
   return (
@@ -310,7 +370,7 @@ export default function IntelPanel({
 
       {/* Panel */}
       <div
-        className="relative w-[400px] h-full bg-[#090f18] border-l border-white/[0.07]
+        className="relative w-[420px] h-full bg-[#090f18] border-l border-white/[0.07]
                    flex flex-col shadow-2xl shadow-black/60 pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -318,6 +378,7 @@ export default function IntelPanel({
         {/* ── Header ── */}
         <div className="flex-none px-4 pt-4 pb-3 border-b border-white/[0.06]
                         bg-gradient-to-b from-violet-950/20 to-transparent">
+
           {/* Title row */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
@@ -330,32 +391,39 @@ export default function IntelPanel({
                   Intelligence Log
                 </h2>
                 <p className="text-[10px] text-white/30 mt-0.5">
-                  {intelUpdating
-                    ? 'Analysing…'
-                    : latest
-                      ? `Updated ${fmtAgo(latest.timestamp)}`
-                      : 'No entries yet'}
+                  {isBuilding
+                    ? `Building history… ${buildStep}/${buildSteps}`
+                    : intelUpdating
+                      ? 'Analysing…'
+                      : loading
+                        ? 'Generating…'
+                        : latest
+                          ? `Updated ${fmtAgo(latest.timestamp)}`
+                          : 'No entries yet'}
                 </p>
               </div>
-              {intelUpdating && (
+              {isBusy && (
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={onRefresh} disabled={loading || intelUpdating}
-                title="Generate intel now"
-                className="w-7 h-7 flex items-center justify-center rounded-lg
-                           text-white/30 hover:text-white/70 hover:bg-white/[0.06]
-                           transition-colors disabled:opacity-40">
-                <IconRefresh spin={loading || intelUpdating} />
-              </button>
-              <button onClick={onClose}
-                className="w-7 h-7 flex items-center justify-center rounded-lg
-                           text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-colors">
-                <IconClose />
-              </button>
-            </div>
+            <button onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg
+                         text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-colors">
+              <IconClose />
+            </button>
           </div>
+
+          {/* Error banner */}
+          {refreshError && (
+            <div className="mb-3 flex items-start gap-2 bg-red-500/[0.08] border border-red-500/25
+                            rounded-xl px-3 py-2.5">
+              <span className="text-red-400 flex-none mt-0.5"><IconWarning /></span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-red-400 mb-0.5">Intel generation failed</p>
+                <p className="text-[10px] text-red-300/70 break-words leading-snug">{refreshError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2 mb-3">
@@ -386,6 +454,24 @@ export default function IntelPanel({
             </div>
           )}
 
+          {/* Build history prompt — shown when we have few entries */}
+          {entries.length > 0 && entries.length < 4 && !isBusy && (
+            <div className="flex items-center gap-2 bg-violet-500/[0.07] border border-violet-500/20
+                            rounded-xl px-3 py-2 mb-3">
+              <span className="text-violet-400 flex-none"><IconSparkle /></span>
+              <p className="text-[10px] text-violet-300/70 flex-1 leading-snug">
+                Build up history for richer patterns & insights.
+              </p>
+              <button
+                onClick={() => void buildHistory()}
+                className="flex-none text-[10px] font-semibold text-violet-400
+                           bg-violet-600/15 border border-violet-500/30 rounded-lg
+                           px-2.5 py-1 hover:bg-violet-600/25 transition-colors whitespace-nowrap">
+                Build ({buildSteps})
+              </button>
+            </div>
+          )}
+
           {/* Tab bar */}
           <div className="flex gap-0.5 bg-white/[0.04] border border-white/[0.06] rounded-xl p-0.5">
             {(['now', 'patterns', 'history'] as Tab[]).map((t) => (
@@ -395,7 +481,7 @@ export default function IntelPanel({
                     ? 'bg-violet-600/70 text-white shadow-sm'
                     : 'text-white/30 hover:text-white/60'
                 }`}>
-                {t === 'now' ? 'Now' : t === 'patterns' ? 'Patterns' : 'History'}
+                {t === 'now' ? 'Now' : t === 'patterns' ? 'Patterns' : `History${entries.length > 0 ? ` (${entries.length})` : ''}`}
               </button>
             ))}
           </div>
@@ -408,19 +494,49 @@ export default function IntelPanel({
           {tab === 'now' && (
             <div className="px-4 py-4 space-y-4">
               {entries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-violet-600/10 border border-violet-500/20
-                                  flex items-center justify-center text-violet-400/50">
+                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                  <div className={`w-14 h-14 rounded-2xl bg-violet-600/10 border border-violet-500/20
+                                  flex items-center justify-center text-violet-400/50
+                                  ${isBusy ? 'animate-pulse' : ''}`}>
                     <IconBrain />
                   </div>
-                  <div className="text-center">
-                    <p className="text-[12px] text-white/30 font-medium">
-                      {loading ? 'Generating first report…' : 'No intelligence yet'}
-                    </p>
-                    <p className="text-[10px] text-white/15 mt-1">
-                      First report generates in ~1 minute after opening the dashboard.
-                    </p>
+                  <div className="text-center space-y-1">
+                    {isBusy ? (
+                      <>
+                        <p className="text-[12px] text-white/50 font-medium">Generating intelligence…</p>
+                        <p className="text-[10px] text-white/20">Analysing camera feeds with Claude AI</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[12px] text-white/30 font-medium">No intelligence yet</p>
+                        <p className="text-[10px] text-white/15">
+                          {refreshError
+                            ? 'Fix the error above, then click Refresh.'
+                            : 'Generating first entry automatically…'}
+                        </p>
+                      </>
+                    )}
                   </div>
+                  {!isBusy && !refreshError && (
+                    <button
+                      onClick={() => void onRefresh()}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-medium
+                                 bg-violet-600/20 border border-violet-500/35 text-violet-400
+                                 hover:bg-violet-600/30 transition-all">
+                      <IconRefresh />
+                      Generate Now
+                    </button>
+                  )}
+                  {!isBusy && refreshError && (
+                    <button
+                      onClick={() => void onRefresh()}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-medium
+                                 bg-white/[0.05] border border-white/[0.1] text-white/40
+                                 hover:bg-white/[0.08] transition-all">
+                      <IconRefresh />
+                      Retry
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -508,9 +624,19 @@ export default function IntelPanel({
               {patternGroups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <p className="text-[12px] text-white/25 font-medium text-center">No patterns yet</p>
-                  <p className="text-[10px] text-white/15 text-center">
-                    Patterns emerge after several intel cycles.
+                  <p className="text-[10px] text-white/15 text-center max-w-[260px]">
+                    Patterns emerge after several intel cycles. Use &ldquo;Build History&rdquo; to accelerate this.
                   </p>
+                  {!isBusy && entries.length > 0 && (
+                    <button
+                      onClick={() => void buildHistory()}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-medium
+                                 bg-violet-600/15 border border-violet-500/30 text-violet-400
+                                 hover:bg-violet-600/25 transition-all">
+                      <IconSparkle />
+                      Build History ({buildSteps} entries)
+                    </button>
+                  )}
                 </div>
               ) : patternGroups.map(({ type, items }) => {
                 const style = PREFIX_STYLES[type];
@@ -547,9 +673,33 @@ export default function IntelPanel({
             <div className="px-4 py-4 space-y-2">
               {entries.length === 0 ? (
                 <p className="text-[12px] text-white/25 text-center py-16">No history yet.</p>
-              ) : entries.map((entry) => (
-                <HistoryEntry key={entry.id} entry={entry} />
-              ))}
+              ) : (
+                <>
+                  {/* Build history CTA when we have just a few entries */}
+                  {entries.length < 4 && !isBusy && (
+                    <button
+                      onClick={() => void buildHistory()}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-2
+                                 rounded-xl text-[11px] font-medium bg-violet-600/10 border border-violet-500/25
+                                 text-violet-400 hover:bg-violet-600/20 transition-all">
+                      <IconSparkle />
+                      Build {buildSteps} more entries to see patterns
+                    </button>
+                  )}
+                  {isBusy && isBuilding && (
+                    <div className="w-full flex items-center justify-center gap-2 px-4 py-3 mb-2
+                                    rounded-xl bg-violet-600/[0.08] border border-violet-500/20">
+                      <span className="text-violet-400 animate-pulse"><IconBrain /></span>
+                      <span className="text-[11px] text-violet-400/70">
+                        Building entry {buildStep + 1} of {buildSteps}…
+                      </span>
+                    </div>
+                  )}
+                  {entries.map((entry) => (
+                    <HistoryEntry key={entry.id} entry={entry} />
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -566,16 +716,33 @@ export default function IntelPanel({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onRefresh}
-              disabled={loading || intelUpdating}
+              onClick={() => void onRefresh()}
+              disabled={isBusy}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium
                          bg-white/[0.04] border border-white/[0.07] text-white/40
                          hover:bg-white/[0.07] hover:text-white/70 transition-all
                          disabled:opacity-40 flex-1 justify-center"
             >
-              <IconRefresh spin={loading || intelUpdating} />
-              {loading || intelUpdating ? 'Analysing…' : 'Refresh Now'}
+              <IconRefresh spin={isBusy && !isBuilding} />
+              {loading || (intelUpdating && !isBuilding) ? 'Analysing…' : 'Refresh'}
             </button>
+
+            {entries.length > 0 && (
+              <button
+                onClick={() => void buildHistory()}
+                disabled={isBusy}
+                title={`Generate ${buildSteps} intel entries in sequence to populate history`}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium
+                            border transition-all disabled:opacity-40 flex-1 justify-center ${
+                  isBuilding
+                    ? 'bg-violet-600/20 border-violet-500/40 text-violet-400'
+                    : 'bg-white/[0.04] border-white/[0.07] text-white/40 hover:bg-white/[0.07] hover:text-white/70'
+                }`}
+              >
+                <IconSparkle />
+                {isBuilding ? `${buildStep}/${buildSteps}…` : `Build ×${buildSteps}`}
+              </button>
+            )}
 
             <button
               onClick={() => void sendToTelegram()}
@@ -590,13 +757,7 @@ export default function IntelPanel({
               }`}
             >
               <IconSend />
-              {telegramSending
-                ? 'Sending…'
-                : telegramStatus === 'sent'
-                  ? 'Sent!'
-                  : telegramStatus === 'error'
-                    ? 'Failed'
-                    : 'Send to Telegram'}
+              {telegramSending ? '…' : telegramStatus === 'sent' ? 'Sent!' : telegramStatus === 'error' ? 'Failed' : 'Telegram'}
             </button>
           </div>
         </div>
