@@ -548,6 +548,63 @@ function AISummaryView({ events, hours }: { events: ActivityEvent[]; hours: numb
 }
 
 // ─────────────────────────────────────────────────────────────
+// Diagnostics panel
+// ─────────────────────────────────────────────────────────────
+
+interface DiagCheck { ok: boolean; detail: string }
+interface DiagResults { ok: boolean; checks: Record<string, DiagCheck>; timestamp: string }
+
+function DiagPanel({ diag }: { diag: DiagResults }) {
+  const LABELS: Record<string, string> = {
+    ANTHROPIC_API_KEY:    'Anthropic API Key',
+    SUPABASE_URL:         'Supabase URL',
+    SUPABASE_ANON_KEY:    'Supabase Anon Key',
+    SUPABASE_SERVICE_KEY: 'Supabase Service Key',
+    GO2RTC_BASE_URL:      'go2rtc URL',
+    cameras:              'Cameras',
+    activity_events_table:'activity_events table',
+    ai_intel_log_table:   'ai_intel_log table',
+    ai_intel_log_insert:  'Insert permission',
+  };
+  return (
+    <div className="rounded-xl bg-white/[0.025] border border-white/[0.08] overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.05] bg-white/[0.02]">
+        <span className={`w-2 h-2 rounded-full flex-none ${diag.ok ? 'bg-green-500' : 'bg-red-500'}`} />
+        <p className="text-[11px] font-semibold text-white/60 uppercase tracking-wider">
+          Setup Diagnostics
+        </p>
+        <span className="ml-auto text-[9px] text-white/20 font-mono">
+          {new Date(diag.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+        </span>
+      </div>
+      <div className="divide-y divide-white/[0.04]">
+        {Object.entries(diag.checks).map(([key, check]) => (
+          <div key={key} className="flex items-start gap-3 px-4 py-2.5">
+            <span className={`flex-none mt-0.5 font-bold text-[11px] ${check.ok ? 'text-green-500' : 'text-red-400'}`}>
+              {check.ok ? '✓' : '✗'}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium text-white/55">{LABELS[key] ?? key}</p>
+              <p className={`text-[10px] mt-0.5 break-all leading-relaxed ${check.ok ? 'text-white/25' : 'text-red-400/70'}`}>
+                {check.detail}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {!diag.ok && (
+        <div className="px-4 py-3 border-t border-white/[0.05] bg-amber-500/[0.04]">
+          <p className="text-[10px] text-amber-400/70 leading-relaxed">
+            <strong className="text-amber-400">Fix:</strong> Add missing env vars to Vercel → Project Settings → Environment Variables.
+            For missing Supabase tables: open the Supabase SQL Editor and run <code className="bg-white/10 px-1 rounded">supabase/schema.sql</code> from your repo.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Intel Log view
 // ─────────────────────────────────────────────────────────────
 
@@ -559,14 +616,23 @@ function IntelLogView() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildStep, setBuildStep] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [diag, setDiag] = useState<DiagResults | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
 
   async function doFetch(): Promise<IntelEntry[]> {
-    const res = await fetch('/api/intel-log?limit=50');
-    if (!res.ok) return [];
-    const data = (await res.json()) as { entries?: IntelEntry[] };
-    const fetched = data.entries ?? [];
-    setEntries(fetched);
-    return fetched;
+    try {
+      const res = await fetch('/api/intel-log?limit=50');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { entries?: IntelEntry[] };
+      const fetched = data.entries ?? [];
+      setEntries(fetched);
+      return fetched;
+    } catch (e) {
+      throw e;
+    }
   }
 
   async function doGenerate() {
@@ -581,29 +647,53 @@ function IntelLogView() {
     }
   }
 
+  async function runDiagnostics() {
+    setDiagLoading(true);
+    try {
+      const res = await fetch('/api/intel-debug');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setGenError(body.error ?? 'Diagnostics failed');
+        return;
+      }
+      const data = (await res.json()) as DiagResults;
+      setDiag(data);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : 'Diagnostics network error');
+    } finally {
+      setDiagLoading(false);
+    }
+  }
+
   // On mount: load entries, auto-generate if empty, poll every 60s
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      let fetchOk = false;
+      let fetched: IntelEntry[] = [];
       try {
-        const fetched = await doFetch();
-        if (!cancelled && fetched.length === 0) {
-          setGenerating(true);
-          try {
-            await doGenerate();
-            if (!cancelled) await doFetch();
-          } catch (e) {
-            if (!cancelled) setGenError(e instanceof Error ? e.message : 'Failed to generate report');
-          } finally {
-            if (!cancelled) setGenerating(false);
-          }
-        }
+        fetched = await doFetch();
+        fetchOk = true;
+      } catch (e) {
+        if (!cancelled) setGenError(e instanceof Error ? e.message : 'Failed to load entries');
       } finally {
         if (!cancelled) setLoading(false);
       }
+      // Only auto-generate if the fetch succeeded and there are no entries yet
+      if (!cancelled && fetchOk && fetched.length === 0) {
+        setGenerating(true);
+        try {
+          await doGenerate();
+          if (!cancelled) { try { await doFetch(); } catch { /* ignore */ } }
+        } catch (e) {
+          if (!cancelled) setGenError(e instanceof Error ? e.message : 'Failed to generate report');
+        } finally {
+          if (!cancelled) setGenerating(false);
+        }
+      }
     })();
-    const pollId = setInterval(() => { void doFetch(); }, 60_000);
+    const pollId = setInterval(() => { void doFetch().catch(() => { /* ignore */ }); }, 60_000);
     return () => { cancelled = true; clearInterval(pollId); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -684,33 +774,55 @@ function IntelLogView() {
   // ── Empty state ────────────────────────────────────────────
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 gap-4 max-w-sm mx-auto text-center">
-        <div className="w-20 h-20 rounded-full bg-violet-500/[0.07] border border-violet-500/15 flex items-center justify-center text-violet-400/30">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96-.46 2.5 2.5 0 01-1.07-4.8A3 3 0 015 11V9a3 3 0 013-3 2.5 2.5 0 011.5-4z" />
-            <path d="M14.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 004.96-.46 2.5 2.5 0 001.07-4.8A3 3 0 0119 11V9a3 3 0 00-3-3 2.5 2.5 0 00-1.5-4z" />
-          </svg>
+      <div className="max-w-lg mx-auto pt-16 pb-10 flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-4 text-center mb-2">
+          <div className="w-20 h-20 rounded-full bg-violet-500/[0.07] border border-violet-500/15 flex items-center justify-center text-violet-400/30">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96-.46 2.5 2.5 0 01-1.07-4.8A3 3 0 015 11V9a3 3 0 013-3 2.5 2.5 0 011.5-4z" />
+              <path d="M14.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 004.96-.46 2.5 2.5 0 001.07-4.8A3 3 0 0119 11V9a3 3 0 00-3-3 2.5 2.5 0 00-1.5-4z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-white/40 text-[15px] font-medium mb-1">No intelligence reports yet</p>
+            <p className="text-white/20 text-[12px] leading-relaxed">
+              Reports auto-generate when the dashboard is open, or click below to generate one now.
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-white/35 text-[14px] font-medium mb-1">No intelligence reports yet</p>
-          <p className="text-white/15 text-[12px] leading-relaxed">
-            Reports auto-generate every 5 minutes when the dashboard is open, or generate one now.
-          </p>
-        </div>
+
+        {/* Error banner */}
         {genError && (
-          <div className="w-full flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400/80 text-[11px] text-left">
-            <span className="font-bold mt-px flex-none">!</span>
-            <span>{genError}</span>
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+            <p className="text-[12px] font-medium text-red-400 mb-1">Generation failed</p>
+            <p className="text-[11px] text-red-400/70 font-mono break-all">{genError}</p>
           </div>
         )}
-        <button onClick={() => void handleGenerate()} disabled={generating}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600/20 border border-violet-500/30
-                     text-violet-400 text-[12px] font-medium hover:bg-violet-600/30 transition-all disabled:opacity-50">
-          {generating
-            ? <><div className="w-3.5 h-3.5 border border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</>
-            : <><Icon.Brain /> Generate First Report</>
-          }
-        </button>
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <button onClick={() => void handleGenerate()} disabled={generating}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                       bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[12px]
+                       font-medium hover:bg-violet-600/30 transition-all disabled:opacity-50">
+            {generating
+              ? <><div className="w-3.5 h-3.5 border border-violet-400/40 border-t-violet-400 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} /> Generating…</>
+              : <><Icon.Brain /> Generate Report</>
+            }
+          </button>
+          <button onClick={() => void runDiagnostics()} disabled={diagLoading}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[11px] font-medium
+                       bg-white/[0.04] border border-white/[0.08] text-white/35
+                       hover:bg-white/[0.07] hover:text-white/55 transition-all disabled:opacity-50">
+            {diagLoading
+              ? <div className="w-3 h-3 border border-white/20 border-t-white/50 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
+              : <Icon.Check />
+            }
+            {diagLoading ? 'Checking…' : 'Diagnose'}
+          </button>
+        </div>
+
+        {/* Diagnostic results */}
+        {diag && <DiagPanel diag={diag} />}
       </div>
     );
   }
@@ -745,12 +857,25 @@ function IntelLogView() {
 
       {/* ── Error banner ── */}
       {genError && (
-        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
-          <span className="font-bold text-red-400 mt-px flex-none text-[13px]">!</span>
-          <div>
-            <p className="text-[12px] font-medium text-red-400">Generation failed</p>
-            <p className="text-[11px] mt-0.5 text-red-400/70">{genError}</p>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+          <div className="flex items-start gap-2.5">
+            <span className="font-bold text-red-400 mt-px flex-none text-[13px]">!</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-medium text-red-400">Generation failed</p>
+              <p className="text-[11px] mt-0.5 text-red-400/70 font-mono break-all">{genError}</p>
+            </div>
+            <button onClick={() => void runDiagnostics()} disabled={diagLoading}
+              className="flex-none flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium
+                         bg-white/[0.06] border border-white/[0.10] text-white/40
+                         hover:text-white/60 hover:bg-white/10 transition-all disabled:opacity-50">
+              {diagLoading
+                ? <div className="w-3 h-3 border border-white/20 border-t-white/50 rounded-full" style={{ animation: 'spin 0.8s linear infinite' }} />
+                : <Icon.Check />
+              }
+              Diagnose
+            </button>
           </div>
+          {diag && <div className="mt-3"><DiagPanel diag={diag} /></div>}
         </div>
       )}
 
