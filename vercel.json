@@ -3,10 +3,6 @@
     {
       "path": "/api/capture-cron",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/intel-update",
-      "schedule": "0 * * * *"
     }
   ]
 }
