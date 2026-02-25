@@ -276,6 +276,17 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="hidden md:inline">People</span>
           </button>
 
+          <button onClick={() => router.push('/')} title="Home Intelligence"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
+                       font-medium transition-all border
+                       text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <span className="hidden md:inline">Home</span>
+          </button>
+
           <button onClick={() => router.push('/intel')} title="Intelligence Log"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
                        font-medium transition-all border

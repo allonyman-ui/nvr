@@ -265,11 +265,11 @@ export default function IntelClient() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
 
           {/* Back */}
-          <button onClick={() => router.push('/summary')}
+          <button onClick={() => router.push('/')}
             className="flex items-center gap-1.5 text-white/35 hover:text-white/75
                        transition-colors text-[12px] font-medium group flex-none">
             <span className="group-hover:-translate-x-0.5 transition-transform"><Icon.ArrowLeft /></span>
-            Activity Log
+            Home
           </button>
 
           <div className="w-px h-4 bg-white/[0.08]" />
