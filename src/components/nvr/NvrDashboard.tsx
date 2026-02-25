@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import CameraPlayer from './CameraPlayer';
 import CameraWatchLog from './CameraWatchLog';
@@ -22,6 +22,46 @@ interface NvrDashboardProps {
 
 type Layout = 'auto' | '1x1' | '2x2' | '3x2';
 type Panel = 'none' | 'ailog' | 'activity' | 'people';
+
+// ── AI Summary types ────────────────────────────────────────────────────
+interface AISummaryData {
+  overview: string;
+  highlights: string[];
+  assessment: string;
+  stats: { totalEvents: number; faceEvents: number; totalPeople: number; cameras: number };
+  capturedAt: string;
+}
+
+const SUMMARY_CACHE_KEY = 'nvr_ai_summary_cache_v1';
+const SUMMARY_TTL_MS = 60 * 60 * 1000; // 60 minutes
+
+function loadCachedSummary(): { data: AISummaryData; timestamp: number } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SUMMARY_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: AISummaryData; timestamp: number };
+    if (!parsed.data || Date.now() - parsed.timestamp > SUMMARY_TTL_MS) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function saveCachedSummary(data: AISummaryData) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch { /* ignore */ }
+}
+
+function fmtTimestamp(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMin = Math.round((now.getTime() - d.getTime()) / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.round(diffMin / 60);
+  return `${diffH}h ago`;
+}
 
 function resolveLayout(layout: Layout, count: number): [number, number] {
   if (layout === '1x1') return [1, 1];
@@ -133,6 +173,43 @@ function IconLock() {
     </svg>
   );
 }
+function IconBrain() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96-.46 2.5 2.5 0 01-1.07-4.8A3 3 0 015 11V9a3 3 0 013-3 2.5 2.5 0 011.5-4z" />
+      <path d="M14.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 004.96-.46 2.5 2.5 0 001.07-4.8A3 3 0 0019 11V9a3 3 0 00-3-3 2.5 2.5 0 00-1.5-4z" />
+    </svg>
+  );
+}
+function IconSend() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+function IconRefresh() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+    </svg>
+  );
+}
+function IconChevron({ up }: { up: boolean }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{ transform: up ? 'rotate(180deg)' : undefined }}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 
 // ── Main ───────────────────────────────────────────────────────────────
 
@@ -154,6 +231,89 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
 
   // 5-second frame capture + motion detection
   const capture = useFrameCapture(cameras, go2rtcBaseUrl, captureEnabled);
+
+  // ── AI Summary ────────────────────────────────────────────────────────
+  const [aiSummary, setAiSummary] = useState<AISummaryData | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(true);
+  const [telegramSending, setTelegramSending] = useState(false);
+  const [telegramStatus, setTelegramStatus] = useState<'idle' | 'sent' | 'error'>('idle');
+  const summaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const generateSummary = useCallback(async () => {
+    if (summaryLoading) return;
+    setSummaryLoading(true);
+    try {
+      // Fetch last 24h events
+      const logRes = await fetch('/api/activity-log?hours=24&limit=500');
+      const logData = (await logRes.json()) as { events?: Array<{
+        camera_name: string; timestamp: string; description: string;
+        motion_score: number; has_faces: boolean; face_count: number;
+      }> };
+      const events = logData.events ?? [];
+
+      // Generate summary
+      const res = await fetch('/api/ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events, hours: 24 }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as AISummaryData;
+      setAiSummary(data);
+      saveCachedSummary(data);
+
+      // Schedule next generation in 60 minutes
+      if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
+      summaryTimerRef.current = setTimeout(() => generateSummary(), SUMMARY_TTL_MS);
+    } catch { /* ignore */ } finally {
+      setSummaryLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const cached = loadCachedSummary();
+    if (cached) {
+      setAiSummary(cached.data);
+      // Schedule refresh for when cache expires
+      const remaining = SUMMARY_TTL_MS - (Date.now() - cached.timestamp);
+      summaryTimerRef.current = setTimeout(() => generateSummary(), Math.max(0, remaining));
+    } else {
+      generateSummary();
+    }
+    return () => { if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function sendToTelegram() {
+    if (!aiSummary || telegramSending) return;
+    setTelegramSending(true);
+    setTelegramStatus('idle');
+    try {
+      const lines = [
+        `🏠 <b>Security Summary — Last 24h</b>`,
+        `${aiSummary.stats.totalEvents} events · ${aiSummary.stats.totalPeople} people`,
+        '',
+        aiSummary.overview,
+      ];
+      if (aiSummary.highlights.length > 0) {
+        lines.push('', '<b>Highlights:</b>');
+        aiSummary.highlights.forEach((h) => lines.push(`• ${h}`));
+      }
+      if (aiSummary.assessment) lines.push('', `<i>${aiSummary.assessment}</i>`);
+
+      const res = await fetch('/api/telegram-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: lines.join('\n') }),
+      });
+      setTelegramStatus(res.ok ? 'sent' : 'error');
+    } catch { setTelegramStatus('error'); } finally {
+      setTelegramSending(false);
+      setTimeout(() => setTelegramStatus('idle'), 3000);
+    }
+  }
 
   function togglePanel(p: Panel) {
     setPanel((cur) => (cur === p ? 'none' : p));
@@ -394,6 +554,97 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
           </div>
         )}
       </main>
+
+      {/* ── AI Summary Box ── */}
+      <div className="flex-none border-t border-white/[0.06] bg-[#0a1018]/80">
+        {/* Header row */}
+        <button
+          onClick={() => setSummaryExpanded((e) => !e)}
+          className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-white/[0.03] transition-colors text-left"
+        >
+          <span className="flex items-center gap-1.5 text-violet-400/80">
+            <IconBrain />
+            <span className="text-[11px] font-semibold text-violet-300/90 tracking-tight">AI Summary</span>
+          </span>
+          <span className="text-[10px] text-white/25 bg-white/[0.05] border border-white/[0.07] rounded-full px-2 py-0.5 flex-none">
+            Last 24h
+          </span>
+          {aiSummary && (
+            <span className="text-[10px] text-white/20 tabular-nums">
+              {fmtTimestamp(aiSummary.capturedAt)}
+            </span>
+          )}
+          {summaryLoading && (
+            <span className="text-[10px] text-violet-400/60 animate-pulse">Generating…</span>
+          )}
+          <div className="flex-1" />
+          {/* Actions */}
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => generateSummary()}
+              disabled={summaryLoading}
+              title="Refresh summary"
+              className="p-1.5 rounded-lg text-white/25 hover:text-white/65 hover:bg-white/[0.06] transition-colors disabled:opacity-40"
+            >
+              <IconRefresh />
+            </button>
+            <button
+              onClick={sendToTelegram}
+              disabled={telegramSending || !aiSummary}
+              title="Send to Telegram"
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all border ${
+                telegramStatus === 'sent'
+                  ? 'bg-green-600/20 border-green-500/40 text-green-400'
+                  : telegramStatus === 'error'
+                  ? 'bg-red-600/20 border-red-500/40 text-red-400'
+                  : 'bg-blue-600/10 border-blue-500/25 text-blue-400 hover:bg-blue-600/20 hover:border-blue-500/40'
+              } disabled:opacity-40`}
+            >
+              <IconSend />
+              {telegramStatus === 'sent' ? 'Sent!' : telegramStatus === 'error' ? 'Failed' : 'Telegram'}
+            </button>
+          </div>
+          <span className="text-white/20 ml-1"><IconChevron up={summaryExpanded} /></span>
+        </button>
+
+        {/* Expanded content */}
+        {summaryExpanded && (
+          <div className="px-4 pb-3 grid gap-2" style={{ gridTemplateColumns: aiSummary?.highlights?.length ? '1fr auto' : '1fr' }}>
+            {summaryLoading && !aiSummary ? (
+              <div className="col-span-2 text-[11px] text-white/25 py-1">Generating AI summary…</div>
+            ) : aiSummary ? (
+              <>
+                {/* Overview */}
+                <p className="text-[11px] text-white/65 leading-relaxed">{aiSummary.overview}</p>
+
+                {/* Highlights */}
+                {aiSummary.highlights.length > 0 && (
+                  <ul className="flex flex-col gap-0.5 text-[10px] text-white/40 min-w-[180px] max-w-[260px]">
+                    {aiSummary.highlights.map((h, i) => (
+                      <li key={i} className="flex gap-1.5 items-start">
+                        <span className="text-violet-500/60 flex-none mt-0.5">•</span>
+                        <span>{h}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Stats + assessment */}
+                <div className="col-span-2 flex items-center gap-3 pt-0.5">
+                  <span className="text-[10px] text-white/20">
+                    {aiSummary.stats.totalEvents} events · {aiSummary.stats.totalPeople} people · {aiSummary.stats.cameras} cameras
+                  </span>
+                  {aiSummary.assessment && (
+                    <span className="text-[10px] text-amber-400/50 italic">{aiSummary.assessment}</span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2 text-[11px] text-white/25 py-1">No summary yet — click refresh to generate.</div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ── Side panels ── */}
       <ActivityFeed
