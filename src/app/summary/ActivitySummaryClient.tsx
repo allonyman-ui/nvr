@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ActivityEvent } from '@/lib/supabase';
+import type { ActivityEvent, IntelEntry } from '@/lib/supabase';
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -131,6 +131,18 @@ const Icon = {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
       <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+    </svg>
+  ),
+  Brain: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96-.46 2.5 2.5 0 01-1.07-4.8A3 3 0 015 11V9a3 3 0 013-3 2.5 2.5 0 011.5-4z" />
+      <path d="M14.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 004.96-.46 2.5 2.5 0 001.07-4.8A3 3 0 0119 11V9a3 3 0 00-3-3 2.5 2.5 0 00-1.5-4z" />
+    </svg>
+  ),
+  Warning: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   ),
 };
@@ -555,6 +567,17 @@ export default function ActivitySummaryClient() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [summaryKey, setSummaryKey] = useState(0); // force re-mount summary on data change
 
+  // Read ?tab= from URL on mount to pre-select tab
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get('tab');
+      if (t === 'summary' || t === 'events') {
+        setTab(t as Tab);
+      }
+    }
+  }, []);
+
   const load = useCallback(async (h: TimeRange, faces: boolean) => {
     setLoading(true);
     try {
@@ -628,16 +651,18 @@ export default function ActivitySummaryClient() {
             ))}
           </div>
 
-          {/* Faces toggle */}
-          <button onClick={() => setFacesOnly((f) => !f)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium
-                        border transition-all flex-none ${
-              facesOnly
-                ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                : 'bg-white/[0.04] border-white/[0.07] text-white/35 hover:text-white/65'
-            }`}>
-            <Icon.User /> Faces
-          </button>
+          {/* Faces toggle — events tab only */}
+          {tab === 'events' && (
+            <button onClick={() => setFacesOnly((f) => !f)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium
+                          border transition-all flex-none ${
+                facesOnly
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                  : 'bg-white/[0.04] border-white/[0.07] text-white/35 hover:text-white/65'
+              }`}>
+              <Icon.User /> Faces
+            </button>
+          )}
 
           {/* Refresh */}
           <button onClick={() => void load(hours, facesOnly)} disabled={loading}
@@ -652,26 +677,37 @@ export default function ActivitySummaryClient() {
         {/* ── Tab bar ── */}
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 border-t border-white/[0.04] pt-0">
           {([
-            { key: 'events' as Tab, label: 'Events', icon: <Icon.Grid /> },
-            { key: 'summary' as Tab, label: 'AI Summary', icon: <Icon.Sparkle /> },
-          ] as const).map(({ key, label, icon }) => (
+            { key: 'events'  as Tab, label: 'Events',     icon: <Icon.Grid />,    badge: null },
+            { key: 'summary' as Tab, label: 'AI Summary',  icon: <Icon.Sparkle />, badge: 'AI' },
+          ] as const).map(({ key, label, icon, badge }) => (
             <button key={key} onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 text-[12px] font-medium transition-all
                           border-b-2 -mb-px ${
                 tab === key
-                  ? key === 'summary'
-                    ? 'text-violet-400 border-violet-500/70'
-                    : 'text-white/90 border-white/30'
+                  ? key === 'events'
+                    ? 'text-white/90 border-white/30'
+                    : 'text-violet-400 border-violet-500/70'
                   : 'text-white/30 border-transparent hover:text-white/60 hover:border-white/10'
               }`}>
               {icon} {label}
-              {key === 'summary' && (
-                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-[8px] font-semibold uppercase tracking-wider">
-                  AI
+              {badge && (
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full border bg-violet-500/20 border-violet-500/30 text-violet-400 text-[8px] font-semibold uppercase tracking-wider">
+                  {badge}
                 </span>
               )}
             </button>
           ))}
+
+          {/* Intel Log — links to dedicated page */}
+          <button onClick={() => router.push('/intel')}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 text-[12px] font-medium transition-all
+                       border-b-2 -mb-px text-white/30 border-transparent
+                       hover:text-violet-400 hover:border-violet-500/30">
+            <Icon.Brain /> Intel Log
+            <span className="ml-0.5 px-1.5 py-0.5 rounded-full border bg-violet-500/20 border-violet-500/30 text-violet-400 text-[8px] font-semibold uppercase tracking-wider">
+              LIVE
+            </span>
+          </button>
         </div>
 
         {/* Camera filter pills — events tab only */}
@@ -705,7 +741,6 @@ export default function ActivitySummaryClient() {
       {/* ── Body ── */}
       <main className="max-w-7xl mx-auto px-4 py-6">
 
-        {/* Stats */}
         <StatsBar events={filtered} hours={hours} />
 
         {/* ── Events Tab ── */}
@@ -757,6 +792,7 @@ export default function ActivitySummaryClient() {
         {tab === 'summary' && (
           <AISummaryView key={summaryKey} events={filtered} hours={hours} />
         )}
+
       </main>
 
       {lightbox && <Lightbox event={lightbox} onClose={() => setLightbox(null)} />}
