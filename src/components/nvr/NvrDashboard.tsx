@@ -276,7 +276,7 @@ export default function NvrDashboard({ go2rtcBaseUrl, cameras, lastLogin }: NvrD
             <span className="hidden md:inline">People</span>
           </button>
 
-          <button onClick={() => router.push('/summary?tab=intel')} title="Intelligence Log"
+          <button onClick={() => router.push('/intel')} title="Intelligence Log"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px]
                        font-medium transition-all border
                        text-white/30 hover:text-white/65 border-transparent hover:bg-white/[0.06] hover:border-white/[0.08]">
