@@ -17,8 +17,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   subscription_id       TEXT,
   trial_ends_at         TIMESTAMPTZ,
   onboarding_completed  BOOLEAN DEFAULT false,
+  signup_source         TEXT,                        -- utm_source / referrer / 'direct'
   created_at            TIMESTAMPTZ DEFAULT now()
 );
+
+-- Migration (run in Supabase SQL editor if table already exists):
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS signup_source TEXT;
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 

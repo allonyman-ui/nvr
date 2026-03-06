@@ -93,7 +93,7 @@ export default async function AdminPage() {
 
   const { data: rawProfiles } = await svc
     .from('profiles')
-    .select('id, email, created_at, subscription_status, onboarding_completed, trial_ends_at')
+    .select('id, email, created_at, subscription_status, onboarding_completed, trial_ends_at, signup_source')
     .order('created_at', { ascending: false })
 
   const profiles = rawProfiles ?? []
@@ -385,7 +385,7 @@ export default async function AdminPage() {
             <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b border-slate-100">
-                  {['User', 'Joined', 'Plan', 'Onboarded'].map(h => (
+                  {['User', 'Joined', 'Plan', 'Source', 'Onboarded'].map(h => (
                     <th key={h} className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -406,6 +406,15 @@ export default async function AdminPage() {
                     </td>
                     <td className="py-2.5 px-3">
                       <SubBadge status={profile.subscription_status ?? 'free'} />
+                    </td>
+                    <td className="py-2.5 px-3">
+                      {(profile as { signup_source?: string }).signup_source ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 max-w-[120px] truncate">
+                          {(profile as { signup_source?: string }).signup_source}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">—</span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3">
                       {profile.onboarding_completed

@@ -113,6 +113,51 @@ export default function BillingClient({ hasPercentPlan }: { hasPercentPlan: bool
 
   return (
     <div>
+      {/* ── Trial timeline — shown right after onboarding ── */}
+      {isWelcome && !isPro && (
+        <div className="mb-5 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="px-5 pt-5 pb-3">
+            <h3 className="text-sm font-bold text-slate-900 mb-0.5">Your 14-day trial — zero surprises</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              We&apos;ll email you before your trial ends so you can decide — no charge until you confirm.
+            </p>
+          </div>
+          <div className="relative px-6 pb-5">
+            {/* Horizontal connector */}
+            <div className="absolute h-px" style={{ top: '20px', left: '5.5rem', right: '5rem', backgroundColor: '#e2e8f0' }} />
+            <div className="flex justify-between">
+              {[
+                { day: '✓',  label: 'Today',  sub: 'Trial starts',   bg: '#4f46e5', color: '#fff',    ring: true  },
+                { day: '11', label: 'Day 11', sub: '📧 3 days left', bg: '#fff',    color: '#64748b', ring: false },
+                { day: '13', label: 'Day 13', sub: '📧 1 day left',  bg: '#fff',    color: '#64748b', ring: false },
+                { day: '14', label: 'Day 14', sub: 'You decide',     bg: '#fff',    color: '#d97706', ring: false },
+              ].map((item, i) => (
+                <div key={i} className="flex flex-col items-center text-center" style={{ width: '4.5rem' }}>
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold relative z-10 mb-1.5"
+                    style={{
+                      backgroundColor: item.bg,
+                      color: item.color,
+                      border: i === 0 ? 'none' : '2px solid #e2e8f0',
+                      boxShadow: item.ring ? '0 0 0 4px rgba(79,70,229,0.12)' : 'none',
+                    }}
+                  >
+                    {item.day}
+                  </div>
+                  <p className="text-xs font-semibold" style={{ color: i === 0 ? '#4f46e5' : '#475569' }}>{item.label}</p>
+                  <p className="text-[10px] leading-snug mt-0.5 text-slate-400">{item.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="px-5 pb-4">
+            <p className="text-[10px] text-slate-400 text-center">
+              Cancel anytime before Day 14 — even during the trial. No charge.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Welcome banner — shown after onboarding */}
       {isWelcome && !isPro && (
         <div className="mb-6 rounded-2xl overflow-hidden border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white">

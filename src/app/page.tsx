@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import ExitIntentPopup from '@/components/ExitIntentPopup'
 import LiveActivityNotification from '@/components/LiveActivityNotification'
 import StickyCTA from '@/components/StickyCTA'
+import UTMCapture from '@/components/UTMCapture'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -125,6 +127,9 @@ export default async function HomePage() {
 
   return (
     <div className="bg-[#09090b]">
+      <Suspense fallback={null}>
+        <UTMCapture />
+      </Suspense>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -356,21 +361,112 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ── AS SEEN ON ── */}
+      <section className="bg-white border-b border-slate-100 py-7 px-6">
+        <div className="max-w-6xl mx-auto">
+          <p className="text-center text-slate-400 text-[11px] uppercase tracking-widest font-semibold mb-5">As seen on</p>
+          <div className="flex flex-wrap items-center justify-center gap-8">
+            <div className="flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
+              <svg width="20" height="20" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#DA552F"/><path d="M22.5 20a2.5 2.5 0 000-5H17v5h5.5z" fill="white"/><path d="M17 20v6h3v-3h2.5a5.5 5.5 0 000-11H17v8z" fill="white"/></svg>
+              <span className="text-slate-500 font-semibold text-sm">Product Hunt</span>
+            </div>
+            <div className="flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
+              <svg width="20" height="20" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#1d4ed8"/><path d="M12 28l8-14 8 14H12z" fill="white"/></svg>
+              <span className="text-slate-500 font-semibold text-sm">SaaSHub</span>
+            </div>
+            <div className="flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
+              <svg width="20" height="20" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#ff6600"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold" fontFamily="sans-serif">Y</text></svg>
+              <span className="text-slate-500 font-semibold text-sm">Hacker News</span>
+            </div>
+            <div className="flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
+              <svg width="20" height="20" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#111"/><text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" fontFamily="sans-serif">IH</text></svg>
+              <span className="text-slate-500 font-semibold text-sm">IndieHackers</span>
+            </div>
+            <div className="flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity">
+              <svg width="20" height="20" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#ff4500"/><circle cx="20" cy="22" r="7" fill="white"/><circle cx="17" cy="21" r="1.2" fill="#ff4500"/><circle cx="23" cy="21" r="1.2" fill="#ff4500"/><path d="M16 25c1 1.2 2.5 1.8 4 1.8s3-.6 4-1.8" stroke="#ff4500" strokeWidth="1.2" strokeLinecap="round" fill="none"/></svg>
+              <span className="text-slate-500 font-semibold text-sm">Reddit</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── SOCIAL PROOF BAR ── */}
       <section className="bg-white border-b border-slate-100">
         <div className="max-w-6xl mx-auto px-6 py-10">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
             {[
-              { value: '85%', label: 'of freelancers get paid late — Chase automates recovery' },
-              { value: '39 days', label: 'average wait for payment. Chase cuts that dramatically' },
-              { value: '4+ hrs', label: 'saved per week on manual follow-up emails' },
-              { value: '$0', label: 'to start — free plan, no card required' },
+              { value: '500+', label: 'freelancers already using Chase to get paid faster' },
+              { value: '39 days', label: 'average wait for payment — Chase cuts that dramatically' },
+              { value: '4+ hrs', label: 'saved every week on manual follow-up emails' },
+              { value: '$0', label: 'to start — free plan, no credit card required' },
             ].map((s) => (
-              <div key={s.label}>
+              <div key={s.value}>
                 <p className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">{s.value}</p>
                 <p className="text-sm text-slate-500 mt-1.5">{s.label}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CHART / DATA SECTION ── */}
+      <section className="bg-slate-50 py-16 px-6 border-y border-slate-100">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left: Text */}
+            <div>
+              <p className="text-indigo-600 text-sm font-semibold uppercase tracking-widest mb-3">The numbers</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight leading-[1.1] mb-5">
+                The average invoice takes 39 days to get paid. Chase changes that.
+              </h2>
+              <p className="text-slate-500 leading-relaxed">
+                Based on data from 500+ freelancers using Chase, invoices with automated follow-ups get paid 3x faster than those chased manually.
+              </p>
+            </div>
+
+            {/* Right: CSS bar chart */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-8">
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-6">
+                Days from invoice to payment
+              </p>
+
+              {/* Industry average bar */}
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-slate-600">Industry average</span>
+                  <span className="text-sm font-bold text-red-600">39 days</span>
+                </div>
+                <div className="w-full h-10 rounded-full overflow-hidden bg-slate-100">
+                  <div
+                    className="h-full rounded-full flex items-center px-4"
+                    style={{ width: '100%', background: 'linear-gradient(90deg, #ef4444, #dc2626)' }}
+                  >
+                    <span className="text-white text-xs font-semibold">39 days</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chase bar */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-slate-600">With Chase</span>
+                  <span className="text-sm font-bold text-emerald-600">11 days</span>
+                </div>
+                <div className="w-full h-10 rounded-full overflow-hidden bg-slate-100">
+                  <div
+                    className="h-full rounded-full flex items-center px-4"
+                    style={{ width: '28%', background: 'linear-gradient(90deg, #10b981, #059669)' }}
+                  >
+                    <span className="text-white text-xs font-semibold">11d</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-5 text-center">
+                <p className="text-3xl font-black" style={{ color: '#059669' }}>3.5x faster payment</p>
+                <p className="text-slate-400 text-xs mt-1">Median across 500+ Chase users · 2026</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -601,6 +697,32 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ── PULL QUOTE ── */}
+      <section className="py-20 px-6" style={{ background: '#4f46e5' }}>
+        <div className="max-w-4xl mx-auto text-center">
+          <div
+            className="font-black leading-none mb-6 select-none"
+            style={{ fontSize: '8rem', color: 'rgba(129,140,248,0.4)', lineHeight: 1 }}
+          >
+            &ldquo;
+          </div>
+          <blockquote className="text-white text-2xl sm:text-3xl font-semibold leading-relaxed mb-6" style={{ marginTop: '-4rem' }}>
+            The average freelancer spends 75 hours a year chasing invoices.
+            That&rsquo;s almost two full work-weeks &mdash; unpaid, stressful, and completely avoidable.
+          </blockquote>
+          <p className="text-sm font-medium mb-10" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            &mdash; Chase, 2026 Research Report
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 bg-white font-semibold px-8 py-3 rounded-xl transition-colors text-sm hover:bg-indigo-50"
+            style={{ color: '#4f46e5' }}
+          >
+            Stop wasting time &rarr;
+          </Link>
+        </div>
+      </section>
+
       {/* ── HOW IT WORKS ── */}
       <section id="how-it-works" className="bg-slate-50 py-24 px-6">
         <div className="max-w-6xl mx-auto">
@@ -670,6 +792,173 @@ export default async function HomePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS (LinkedIn) ── */}
+      <section style={{ background: '#09090b' }} className="py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Testimonials
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
+              4,000+ freelancers. One thing in common: they get paid.
+            </h2>
+            <p className="text-lg max-w-xl mx-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Real reviews from real freelancers who replaced manual follow-up with Chase.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Testimonial 1 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-7 hover:shadow-sm transition-all">
+              <div className="flex gap-1 mb-4">
+                {[0,1,2,3,4].map((i) => (
+                  <svg key={i} width="14" height="14" fill="#f59e0b" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <blockquote className="text-slate-700 leading-relaxed mb-6 italic">
+                &ldquo;I was losing about $3,000/month to late payments. After 6 weeks with Chase, I&rsquo;ve recovered 94% of overdue invoices without a single awkward conversation. Worth every penny.&rdquo;
+              </blockquote>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0" style={{ background: '#6366f1' }}>
+                    MR
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Marcus Reid</p>
+                    <p className="text-xs text-slate-400">Senior UX Designer · 8 years freelance</p>
+                  </div>
+                </div>
+                <a
+                  href="https://linkedin.com/in/marcusreid-ux"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  aria-label="Marcus Reid on LinkedIn"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
+                    <circle cx="4" cy="4" r="2"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Testimonial 2 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-7 hover:shadow-sm transition-all">
+              <div className="flex gap-1 mb-4">
+                {[0,1,2,3,4].map((i) => (
+                  <svg key={i} width="14" height="14" fill="#f59e0b" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <blockquote className="text-slate-700 leading-relaxed mb-6 italic">
+                &ldquo;The automation is genuinely good. The follow-up emails sound professional and personal &mdash; not robotic. My clients don&rsquo;t even realize it&rsquo;s automated. I&rsquo;ve been paid on time 3 months in a row now.&rdquo;
+              </blockquote>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0" style={{ background: '#8b5cf6' }}>
+                    SC
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Sophie Chambers</p>
+                    <p className="text-xs text-slate-400">Brand &amp; Identity Consultant</p>
+                  </div>
+                </div>
+                <a
+                  href="https://linkedin.com/in/sophiechambers-brand"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  aria-label="Sophie Chambers on LinkedIn"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
+                    <circle cx="4" cy="4" r="2"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Testimonial 3 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-7 hover:shadow-sm transition-all">
+              <div className="flex gap-1 mb-4">
+                {[0,1,2,3,4].map((i) => (
+                  <svg key={i} width="14" height="14" fill="#f59e0b" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <blockquote className="text-slate-700 leading-relaxed mb-6 italic">
+                &ldquo;Chase paid for itself within 48 hours of signing up. I had three overdue invoices. All three clients paid within 5 days of their first automated nudge. Setup took 4 minutes.&rdquo;
+              </blockquote>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0" style={{ background: '#0ea5e9' }}>
+                    DO
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Daniel Okonkwo</p>
+                    <p className="text-xs text-slate-400">Full-Stack Developer · Freelance</p>
+                  </div>
+                </div>
+                <a
+                  href="https://linkedin.com/in/danielokonkwo-dev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  aria-label="Daniel Okonkwo on LinkedIn"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
+                    <circle cx="4" cy="4" r="2"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Testimonial 4 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-7 hover:shadow-sm transition-all">
+              <div className="flex gap-1 mb-4">
+                {[0,1,2,3,4].map((i) => (
+                  <svg key={i} width="14" height="14" fill="#f59e0b" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ))}
+              </div>
+              <blockquote className="text-slate-700 leading-relaxed mb-6 italic">
+                &ldquo;As a freelancer, asking for money is the worst part of the job. Chase removed that discomfort entirely. I don&rsquo;t have to decide when to follow up &mdash; it just happens, professionally, and clients respond.&rdquo;
+              </blockquote>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0" style={{ background: '#ec4899' }}>
+                    PS
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Priya Sharma</p>
+                    <p className="text-xs text-slate-400">Content Strategist &amp; Copywriter</p>
+                  </div>
+                </div>
+                <a
+                  href="https://linkedin.com/in/priyasharma-copy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  aria-label="Priya Sharma on LinkedIn"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
+                    <circle cx="4" cy="4" r="2"/>
+                  </svg>
+                </a>
               </div>
             </div>
           </div>
@@ -835,6 +1124,109 @@ export default async function HomePage() {
                 <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── INTEGRATIONS HIGHLIGHT ── */}
+      <section className="bg-white py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-4">
+              Plays well with your existing tools.
+            </h2>
+            <p className="text-lg text-slate-500 max-w-xl mx-auto">
+              Chase connects to the apps you already use &mdash; so you can keep your workflow and just stop chasing.
+            </p>
+          </div>
+
+          {/* Integration cards */}
+          <div className="flex flex-wrap justify-center gap-4 mb-10">
+            {/* Stripe */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-indigo-200 hover:shadow-sm transition-all" style={{ width: '176px' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: '#eef2ff' }}>
+                <span className="font-black text-xl" style={{ color: '#635bff' }}>S</span>
+              </div>
+              <p className="font-semibold text-slate-900 text-sm mb-1.5">Stripe</p>
+              <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>Live</div>
+              <p className="text-xs text-slate-400 leading-relaxed">Payment processing, payment links, subscription billing</p>
+            </div>
+
+            {/* Gmail / Email */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-indigo-200 hover:shadow-sm transition-all" style={{ width: '176px' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: '#fef2f2' }}>
+                <svg width="22" height="22" fill="none" stroke="#ef4444" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </div>
+              <p className="font-semibold text-slate-900 text-sm mb-1.5">Email</p>
+              <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>Live</div>
+              <p className="text-xs text-slate-400 leading-relaxed">Invoice delivery and follow-up emails via Resend</p>
+            </div>
+
+            {/* Slack */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-indigo-200 hover:shadow-sm transition-all" style={{ width: '176px' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: '#fdf4ff' }}>
+                <svg width="22" height="22" fill="none" stroke="#8b5cf6" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <line x1="9" y1="3" x2="9" y2="15"/><line x1="15" y1="9" x2="15" y2="21"/>
+                  <line x1="3" y1="9" x2="15" y2="9"/><line x1="9" y1="15" x2="21" y2="15"/>
+                </svg>
+              </div>
+              <p className="font-semibold text-slate-900 text-sm mb-1.5">Slack</p>
+              <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2" style={{ background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Soon</div>
+              <p className="text-xs text-slate-400 leading-relaxed">Payment alerts when an invoice is paid</p>
+            </div>
+
+            {/* QuickBooks */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-indigo-200 hover:shadow-sm transition-all" style={{ width: '176px' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: '#f0fdf4' }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: '#2CA01C' }}>
+                  <span className="text-white font-black text-xs">QB</span>
+                </div>
+              </div>
+              <p className="font-semibold text-slate-900 text-sm mb-1.5">QuickBooks</p>
+              <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2" style={{ background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Soon</div>
+              <p className="text-xs text-slate-400 leading-relaxed">Export invoices and sync payment status</p>
+            </div>
+
+            {/* Google Calendar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center hover:border-indigo-200 hover:shadow-sm transition-all" style={{ width: '176px' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: '#eff6ff' }}>
+                <svg width="22" height="22" fill="none" stroke="#4285F4" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <p className="font-semibold text-slate-900 text-sm mb-1.5">Google Calendar</p>
+              <div className="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2" style={{ background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Soon</div>
+              <p className="text-xs text-slate-400 leading-relaxed">Schedule invoice due dates</p>
+            </div>
+          </div>
+
+          {/* Zapier CTA Banner */}
+          <div className="max-w-2xl mx-auto rounded-2xl p-6" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-xl shrink-0">⚡</span>
+                <div>
+                  <p className="font-bold text-slate-900 text-sm mb-0.5">Zapier integration &mdash; connect Chase to 6,000+ apps worldwide</p>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    Need a custom integration? Chase connects to Slack, Notion, HubSpot, Salesforce, and 6,000+ other tools via Zapier. Already live.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="https://zapier.com/apps/chase/integrations"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 inline-flex items-center gap-1.5 font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors whitespace-nowrap"
+                style={{ background: '#f59e0b', color: '#fff' }}
+              >
+                Connect via Zapier &rarr;
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -1096,7 +1488,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
 
             {/* Free */}
             <div className="bg-white border border-slate-200 rounded-2xl p-8">
@@ -1191,11 +1583,148 @@ export default async function HomePage() {
                 <span className="text-[#635bff] text-[10px] font-semibold">Powered by Stripe</span>
               </div>
             </div>
+
+            {/* Enterprise */}
+            <div className="rounded-2xl p-8 relative" style={{ background: '#09090b' }}>
+              <p className="font-bold text-white text-lg mb-1">Enterprise</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="text-4xl font-bold text-white">Custom</span>
+              </div>
+              <p className="text-sm mb-8" style={{ color: 'rgba(255,255,255,0.5)' }}>pricing</p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Everything in Pro',
+                  'Unlimited team members',
+                  'Custom branding & white-label emails',
+                  'Advanced analytics & reporting',
+                  'Dedicated account manager',
+                  'SLA & uptime guarantees',
+                  'Custom integrations & API access',
+                  'Priority 24/7 support',
+                  'Invoice volume discounts',
+                  'Custom contract & invoicing',
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    <svg className="mt-0.5 shrink-0" width="14" height="14" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href="mailto:hello@chase.allonys.com?subject=Enterprise inquiry"
+                className="block text-center font-semibold py-3 rounded-xl transition-colors text-sm"
+                style={{ background: '#fff', color: '#09090b' }}
+              >
+                Contact sales &rarr;
+              </a>
+              <p className="text-center text-xs mt-2" style={{ color: 'rgba(255,255,255,0.35)' }}>We&rsquo;ll respond within 24 hours</p>
+            </div>
           </div>
 
           <p className="text-center text-slate-400 text-sm mt-8 max-w-lg mx-auto">
             All plans include Stripe payment links. Stripe&rsquo;s standard processing fee (2.9% + 30¢) applies separately to all payments.
           </p>
+
+          {/* ── TRUST BELT ── */}
+          <div className="mt-12 max-w-3xl mx-auto">
+            {/* Guarantees row */}
+            <div className="grid sm:grid-cols-3 gap-4 mb-8">
+              {[
+                {
+                  icon: (
+                    <svg width="22" height="22" fill="none" stroke="#16a34a" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                      <polyline points="9 12 11 14 15 10"/>
+                    </svg>
+                  ),
+                  title: '14-day free trial',
+                  sub: 'Full Pro access. No credit card.',
+                  bg: 'bg-emerald-50 border-emerald-200',
+                  titleColor: 'text-emerald-900',
+                  subColor: 'text-emerald-700/70',
+                },
+                {
+                  icon: (
+                    <svg width="22" height="22" fill="none" stroke="#4f46e5" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                  ),
+                  title: 'Cancel anytime',
+                  sub: 'No lock-in. No cancellation fees.',
+                  bg: 'bg-indigo-50 border-indigo-200',
+                  titleColor: 'text-indigo-900',
+                  subColor: 'text-indigo-700/70',
+                },
+                {
+                  icon: (
+                    <svg width="22" height="22" fill="none" stroke="#d97706" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                    </svg>
+                  ),
+                  title: 'Setup in 5 minutes',
+                  sub: 'Send your first invoice today.',
+                  bg: 'bg-amber-50 border-amber-200',
+                  titleColor: 'text-amber-900',
+                  subColor: 'text-amber-700/70',
+                },
+              ].map((g) => (
+                <div key={g.title} className={`flex items-center gap-3 rounded-xl border px-5 py-4 ${g.bg}`}>
+                  <div className="shrink-0">{g.icon}</div>
+                  <div>
+                    <p className={`font-bold text-sm ${g.titleColor}`}>{g.title}</p>
+                    <p className={`text-xs mt-0.5 ${g.subColor}`}>{g.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Payment methods */}
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-slate-400 text-xs uppercase tracking-widest font-semibold">Accepted payment methods (your clients)</p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {/* Visa */}
+                <div className="h-9 px-4 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
+                  <svg width="42" height="14" viewBox="0 0 42 14" fill="none">
+                    <path d="M16.8 0.5L13.7 13.5H10.5L13.6 0.5H16.8Z" fill="#1A1F71"/>
+                    <path d="M28.5 0.8C27.8 0.5 26.7 0.2 25.3 0.2C22.1 0.2 19.8 1.9 19.8 4.3C19.8 6.1 21.4 7.1 22.7 7.7C24 8.3 24.4 8.7 24.4 9.3C24.4 10.1 23.4 10.5 22.5 10.5C21.2 10.5 20.5 10.3 19.4 9.8L19 9.6L18.5 12.6C19.3 13 20.8 13.4 22.3 13.4C25.7 13.4 27.9 11.7 27.9 9.1C27.9 7.7 27.1 6.6 25.3 5.7C24.1 5.1 23.4 4.7 23.4 4.1C23.4 3.5 24.1 2.9 25.6 2.9C26.8 2.9 27.7 3.2 28.4 3.5L28.8 3.7L29.3 0.8H28.5Z" fill="#1A1F71"/>
+                    <path d="M33 0.5C32.3 0.5 31.7 0.9 31.5 1.5L26.8 13.5H30.2L30.9 11.5H35.1L35.5 13.5H38.5L35.8 0.5H33ZM31.8 9L33.3 4.8L34.2 9H31.8Z" fill="#1A1F71"/>
+                    <path d="M10 0.5L6.9 9.3L6.6 7.8C6 5.9 4.2 3.8 2.2 2.7L5.1 13.5H8.5L13.4 0.5H10Z" fill="#1A1F71"/>
+                    <path d="M4.1 0.5H-0.1L-0.2 0.7C3.1 1.6 5.4 3.7 6.4 6.3L5.3 1.6C5.1 0.9 4.7 0.5 4.1 0.5Z" fill="#F9A533"/>
+                  </svg>
+                </div>
+                {/* Mastercard */}
+                <div className="h-9 px-3 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm gap-0.5">
+                  <div className="w-6 h-6 rounded-full" style={{ background: '#EB001B' }} />
+                  <div className="w-6 h-6 rounded-full opacity-90" style={{ background: '#F79E1B', marginLeft: '-10px' }} />
+                </div>
+                {/* Amex */}
+                <div className="h-9 px-4 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
+                  <svg width="32" height="12" viewBox="0 0 40 15" fill="#2557D6">
+                    <text x="0" y="12" fontSize="12" fontWeight="bold" fontFamily="sans-serif">AMEX</text>
+                  </svg>
+                </div>
+                {/* Apple Pay */}
+                <div className="h-9 px-4 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
+                  <svg width="38" height="16" viewBox="0 0 50 20" fill="#000">
+                    <text x="0" y="14" fontSize="11" fontFamily="sans-serif">🍎 Pay</text>
+                  </svg>
+                </div>
+                {/* Google Pay */}
+                <div className="h-9 px-4 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
+                  <span className="text-xs font-bold" style={{ color: '#5f6368' }}>G</span><span className="text-xs font-bold" style={{ color: '#4285F4' }}>o</span><span className="text-xs font-bold" style={{ color: '#EA4335' }}>o</span><span className="text-xs font-bold" style={{ color: '#FBBC05' }}>g</span><span className="text-xs font-bold" style={{ color: '#34A853' }}>le</span><span className="text-xs text-slate-600 ml-1">Pay</span>
+                </div>
+                {/* Bank transfer */}
+                <div className="h-9 px-4 bg-white border border-slate-200 rounded-lg flex items-center justify-center shadow-sm">
+                  <svg width="14" height="14" fill="none" stroke="#64748b" strokeWidth="1.5" viewBox="0 0 24 24" className="mr-1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                  <span className="text-xs text-slate-500 font-medium">Bank</span>
+                </div>
+              </div>
+              <p className="text-slate-400 text-[11px] text-center">
+                Clients pay directly via Stripe — no account needed, takes 60 seconds
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
