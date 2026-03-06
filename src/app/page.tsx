@@ -840,13 +840,14 @@ export default async function HomePage() {
                   href="https://linkedin.com/in/marcusreid-ux"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#0a66c2] text-white hover:bg-[#004182] transition-colors"
                   aria-label="Marcus Reid on LinkedIn"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
                     <circle cx="4" cy="4" r="2"/>
                   </svg>
+                  LinkedIn
                 </a>
               </div>
             </div>
@@ -877,13 +878,14 @@ export default async function HomePage() {
                   href="https://linkedin.com/in/sophiechambers-brand"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#0a66c2] text-white hover:bg-[#004182] transition-colors"
                   aria-label="Sophie Chambers on LinkedIn"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
                     <circle cx="4" cy="4" r="2"/>
                   </svg>
+                  LinkedIn
                 </a>
               </div>
             </div>
@@ -914,13 +916,14 @@ export default async function HomePage() {
                   href="https://linkedin.com/in/danielokonkwo-dev"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#0a66c2] text-white hover:bg-[#004182] transition-colors"
                   aria-label="Daniel Okonkwo on LinkedIn"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
                     <circle cx="4" cy="4" r="2"/>
                   </svg>
+                  LinkedIn
                 </a>
               </div>
             </div>
@@ -951,13 +954,14 @@ export default async function HomePage() {
                   href="https://linkedin.com/in/priyasharma-copy"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-300 hover:text-[#0a66c2] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#0a66c2] text-white hover:bg-[#004182] transition-colors"
                   aria-label="Priya Sharma on LinkedIn"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
                     <circle cx="4" cy="4" r="2"/>
                   </svg>
+                  LinkedIn
                 </a>
               </div>
             </div>

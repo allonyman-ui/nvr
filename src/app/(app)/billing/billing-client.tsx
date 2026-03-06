@@ -113,8 +113,8 @@ export default function BillingClient({ hasPercentPlan }: { hasPercentPlan: bool
 
   return (
     <div>
-      {/* ── Trial timeline — shown right after onboarding ── */}
-      {isWelcome && !isPro && (
+      {/* ── Trial timeline — shown for all free users ── */}
+      {!isPro && (
         <div className="mb-5 bg-white border border-slate-200 rounded-2xl overflow-hidden">
           <div className="px-5 pt-5 pb-3">
             <h3 className="text-sm font-bold text-slate-900 mb-0.5">Your 14-day trial — zero surprises</h3>
