@@ -1,29 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+
+const PROMO_CODE = 'LAUNCH20'
+const TIMER_SECONDS = 10 * 60 // 10 minutes
 
 export default function ExitIntentPopup() {
   const [visible, setVisible] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS)
+  const [copied, setCopied] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Exit-intent trigger
   useEffect(() => {
-    // Only show once per session and never to users who've already seen it 3 times
     const key = 'chase_exit_shown'
     const count = parseInt(sessionStorage.getItem(key) ?? '0', 10)
-    if (count >= 1) return // show once per session max
+    if (count >= 1) return // once per session
 
     let triggered = false
 
     function handleMouseLeave(e: MouseEvent) {
-      // Fire when cursor exits through the TOP of the viewport
       if (e.clientY > 20 || triggered) return
       triggered = true
       sessionStorage.setItem(key, String(count + 1))
-      // Small delay so it doesn't feel jarring
       setTimeout(() => setVisible(true), 200)
     }
 
-    // Only attach after 8s on page — visitors who bounce immediately don't count
+    // Attach after 8s — don't fire for bounce visitors
     const timer = setTimeout(() => {
       document.addEventListener('mouseleave', handleMouseLeave)
     }, 8000)
@@ -34,12 +38,47 @@ export default function ExitIntentPopup() {
     }
   }, [])
 
+  // Countdown starts when popup appears
+  useEffect(() => {
+    if (!visible) return
+    intervalRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(intervalRef.current!)
+          return 0
+        }
+        return t - 1
+      })
+    }, 1000)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [visible])
+
+  function formatTime(seconds: number) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+    const s = (seconds % 60).toString().padStart(2, '0')
+    return { m, s }
+  }
+
+  function copyCode() {
+    navigator.clipboard.writeText(PROMO_CODE).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }).catch(() => {
+      // Fallback: select text for manual copy
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    })
+  }
+
   if (!visible) return null
+
+  const { m, s } = formatTime(timeLeft)
+  const expired = timeLeft === 0
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(4px)' }}
+      style={{ backgroundColor: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={() => setVisible(false)}
     >
       <div
@@ -47,10 +86,10 @@ export default function ExitIntentPopup() {
         onClick={e => e.stopPropagation()}
         style={{ animation: 'chase-pop 0.25s cubic-bezier(0.34,1.56,0.64,1)' }}
       >
-        {/* Top accent bar */}
-        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600" />
+        {/* Top gradient bar */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600" />
 
-        {/* Close */}
+        {/* Close button */}
         <button
           onClick={() => setVisible(false)}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
@@ -62,43 +101,76 @@ export default function ExitIntentPopup() {
         </button>
 
         <div className="p-8">
-          {/* Icon */}
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-5">
-            <svg width="26" height="26" fill="none" stroke="#4f46e5" strokeWidth="1.75" viewBox="0 0 24 24">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full mb-4">
+            <span>⚡</span> Limited-time launch offer
           </div>
 
-          <h2 className="text-xl font-bold text-slate-900 leading-snug mb-2">
-            Still chasing invoices manually?
+          {/* Headline */}
+          <h2 className="text-2xl font-bold text-slate-900 leading-tight mb-1">
+            Wait — here&apos;s 20% off Pro.
           </h2>
-          <p className="text-slate-500 text-sm leading-relaxed mb-6">
-            Chase sends every follow-up automatically — so you can focus on the work, not the awkward "just checking in" emails. Free for 14 days, no card needed.
+          <p className="text-slate-500 text-sm leading-relaxed mb-5">
+            Use code <span className="font-bold text-slate-800">{PROMO_CODE}</span> at checkout and get Pro for just{' '}
+            <span className="font-bold text-indigo-600">$15.20/mo</span>{' '}
+            <span className="line-through text-slate-400">$19</span> — that&apos;s cheaper than losing one invoice to late payment.
           </p>
 
-          {/* Proof */}
-          <div className="flex items-center gap-3 mb-6 p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <div className="flex -space-x-2">
-              {['#6366f1','#8b5cf6','#06b6d4'].map((c, i) => (
-                <div key={i} className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: c }}>
-                  {['J','S','M'][i]}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-slate-600">
-              <span className="font-semibold text-slate-800">Freelancers</span> saved an average of <span className="font-semibold text-indigo-600">4.2 hours/month</span> on follow-ups
+          {/* Countdown */}
+          <div
+            className="rounded-xl p-4 mb-5"
+            style={{ backgroundColor: '#09090b' }}
+          >
+            <p className="text-xs font-semibold text-center mb-2.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {expired ? 'Offer may have expired — try the code anyway' : 'Offer expires in'}
             </p>
+            {!expired ? (
+              <div className="flex items-center justify-center gap-3">
+                <div className="flex flex-col items-center min-w-[3rem]">
+                  <span className="text-white text-3xl font-bold font-mono tabular-nums leading-none">{m}</span>
+                  <span className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>min</span>
+                </div>
+                <span className="text-white text-3xl font-bold leading-none">:</span>
+                <div className="flex flex-col items-center min-w-[3rem]">
+                  <span className="text-white text-3xl font-bold font-mono tabular-nums leading-none">{s}</span>
+                  <span className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>sec</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-amber-400 text-sm font-semibold">⏰ Timer expired — code may still work!</p>
+            )}
           </div>
 
+          {/* Promo code copy box */}
+          <div className="flex items-stretch gap-2 mb-5">
+            <div
+              className="flex-1 rounded-xl px-4 py-3 flex items-center justify-center border-2 border-dashed"
+              style={{ backgroundColor: '#eef2ff', borderColor: '#a5b4fc' }}
+            >
+              <span className="font-bold text-lg tracking-[0.2em]" style={{ color: '#4338ca' }}>{PROMO_CODE}</span>
+            </div>
+            <button
+              onClick={copyCode}
+              className="shrink-0 text-white text-sm font-semibold px-4 rounded-xl transition-all whitespace-nowrap"
+              style={{ backgroundColor: copied ? '#16a34a' : '#4f46e5' }}
+            >
+              {copied ? '✓ Copied!' : 'Copy code'}
+            </button>
+          </div>
+
+          {/* Primary CTA */}
           <Link
             href="/signup"
             onClick={() => setVisible(false)}
-            className="btn-primary w-full justify-center py-3 text-base"
+            className="inline-flex items-center justify-center gap-2 w-full text-white font-semibold px-6 py-3 rounded-xl transition-colors text-base"
+            style={{ backgroundColor: '#4f46e5' }}
           >
-            Start free 14-day trial →
+            Claim 20% off — start free trial →
           </Link>
+
+          {/* Trust line */}
           <p className="text-xs text-slate-400 text-center mt-3">
-            No credit card required • Cancel any time
+            14-day free trial · Apply code at checkout · Cancel anytime
           </p>
         </div>
       </div>

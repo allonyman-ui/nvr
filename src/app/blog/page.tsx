@@ -84,6 +84,14 @@ const posts = [
     readTime: '9 min read',
     category: 'Getting Paid',
   },
+  {
+    slug: 'overdue-invoice-letter',
+    title: 'Overdue Invoice Letter: 5 Copy-Paste Templates (Friendly to Firm)',
+    description: 'Five ready-to-send overdue invoice letter and email templates — from a polite first reminder to a final escalation notice. Includes timing guide and late fee advice.',
+    date: 'March 2026',
+    readTime: '8 min read',
+    category: 'Email Templates',
+  },
 ]
 
 export default function BlogPage() {
