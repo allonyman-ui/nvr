@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -6,6 +7,12 @@ import ExitIntentPopup from '@/components/ExitIntentPopup'
 import LiveActivityNotification from '@/components/LiveActivityNotification'
 import StickyCTA from '@/components/StickyCTA'
 import UTMCapture from '@/components/UTMCapture'
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: 'https://chase.allonys.com',
+  },
+}
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -57,11 +64,43 @@ export default async function HomePage() {
         ],
       },
       {
+        '@type': 'WebSite',
+        '@id': 'https://chase.allonys.com/#website',
+        url: 'https://chase.allonys.com',
+        name: 'Chase',
+        description: 'Automated invoice follow-ups for freelancers. Connect Stripe, send invoices, Chase handles the rest.',
+        publisher: { '@id': 'https://chase.allonys.com/#org' },
+      },
+      {
+        '@type': 'WebPage',
+        '@id': 'https://chase.allonys.com/#webpage',
+        url: 'https://chase.allonys.com',
+        name: 'Chase — Stop chasing. Start getting paid.',
+        description: 'Chase automatically follows up on unpaid invoices so freelancers never have to write another "just checking in" email.',
+        isPartOf: { '@id': 'https://chase.allonys.com/#website' },
+        about: { '@id': 'https://chase.allonys.com/#app' },
+        primaryImageOfPage: {
+          '@type': 'ImageObject',
+          url: 'https://chase.allonys.com/opengraph-image',
+          width: 1200,
+          height: 630,
+        },
+      },
+      {
         '@type': 'Organization',
         '@id': 'https://chase.allonys.com/#org',
         name: 'Chase',
         url: 'https://chase.allonys.com',
-        logo: 'https://chase.allonys.com/favicon.svg',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://chase.allonys.com/favicon.svg',
+          width: 512,
+          height: 512,
+        },
+        sameAs: [
+          'https://twitter.com/AllonyAssaf',
+          'https://www.linkedin.com/in/assaf-allony-13784a19a/',
+        ],
         contactPoint: {
           '@type': 'ContactPoint',
           contactType: 'customer support',

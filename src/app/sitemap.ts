@@ -1,152 +1,184 @@
 import { MetadataRoute } from 'next'
 
 const BASE = 'https://chase.allonys.com'
+const LAUNCH_DATE = new Date('2026-03-04')
+const UPDATED_DATE = new Date('2026-03-06')
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: BASE,
-      lastModified: new Date(),
+      lastModified: UPDATED_DATE,
       changeFrequency: 'weekly',
       priority: 1.0,
     },
     {
       url: `${BASE}/signup`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.9,
     },
     // Blog index
     {
       url: `${BASE}/blog`,
-      lastModified: new Date(),
+      lastModified: UPDATED_DATE,
       changeFrequency: 'weekly',
       priority: 0.8,
     },
-    // Blog posts — existing
+    // Blog posts — batch 1
     {
       url: `${BASE}/blog/best-invoicing-app-freelancers`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/how-to-collect-overdue-invoices`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/invoice-reminder-software-freelancers`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/how-to-write-invoice-payment-reminder-email`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/how-to-follow-up-on-unpaid-invoice-freelancer`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/invoice-follow-up-email-templates`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
-    // Blog posts — new batch 2
+    // Blog posts — batch 2
     {
       url: `${BASE}/blog/freelance-invoice-template`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/how-to-ask-for-payment-professionally`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/invoice-payment-terms`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/late-payment-email`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
-    // Blog posts — new
+    // Blog posts — batch 3
     {
       url: `${BASE}/blog/invoice-reminder-email-templates`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/how-to-chase-unpaid-invoice`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/late-payment-recovery-sequence`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE}/blog/overdue-invoice-letter`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     // Alternatives pages
     {
       url: `${BASE}/alternatives/honeybook`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.7,
     },
     {
       url: `${BASE}/alternatives/bonsai`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${BASE}/alternatives/dubsado`,
+      lastModified: UPDATED_DATE,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${BASE}/alternatives/quickbooks`,
+      lastModified: UPDATED_DATE,
       changeFrequency: 'monthly',
       priority: 0.7,
     },
     // VS pages
     {
       url: `${BASE}/vs/freshbooks`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${BASE}/vs/wave`,
+      lastModified: UPDATED_DATE,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${BASE}/vs/invoiceninja`,
+      lastModified: UPDATED_DATE,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${BASE}/vs/quickbooks`,
+      lastModified: UPDATED_DATE,
       changeFrequency: 'monthly',
       priority: 0.7,
     },
     // Auth pages
     {
       url: `${BASE}/login`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'monthly',
       priority: 0.5,
     },
     // Legal
     {
       url: `${BASE}/privacy`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'yearly',
       priority: 0.3,
     },
     {
       url: `${BASE}/terms`,
-      lastModified: new Date(),
+      lastModified: LAUNCH_DATE,
       changeFrequency: 'yearly',
       priority: 0.3,
     },

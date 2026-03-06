@@ -72,6 +72,18 @@ export default function TemplatePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Chase', item: 'https://chase.allonys.com' },
+            { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://chase.allonys.com/blog' },
+            { '@type': 'ListItem', position: 3, name: 'Invoice Follow-Up Email Templates: Day 3, 7, 14 & Final Notice', item: 'https://chase.allonys.com/blog/invoice-follow-up-email-templates' },
+          ],
+        }) }}
+      />
 
       {/* Nav */}
       <nav className="border-b border-slate-200 bg-white sticky top-0 z-50">

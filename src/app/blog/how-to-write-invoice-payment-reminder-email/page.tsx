@@ -91,6 +91,18 @@ export default function InvoicePaymentReminderEmailPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Chase', item: 'https://chase.allonys.com' },
+            { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://chase.allonys.com/blog' },
+            { '@type': 'ListItem', position: 3, name: 'How to Write an Invoice Payment Reminder Email', item: 'https://chase.allonys.com/blog/how-to-write-invoice-payment-reminder-email' },
+          ],
+        }) }}
+      />
 
       {/* Nav */}
       <nav className="border-b border-slate-200 bg-white sticky top-0 z-50">

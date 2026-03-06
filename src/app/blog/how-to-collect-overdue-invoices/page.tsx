@@ -56,6 +56,18 @@ export default function HowToCollectOverdueInvoicesPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Chase', item: 'https://chase.allonys.com' },
+            { '@type': 'ListItem', position: 2, name: 'Blog', item: 'https://chase.allonys.com/blog' },
+            { '@type': 'ListItem', position: 3, name: 'How to Collect Overdue Invoices Without Losing the Client', item: 'https://chase.allonys.com/blog/how-to-collect-overdue-invoices' },
+          ],
+        }) }}
+      />
 
       {/* Nav */}
       <nav className="border-b border-slate-200 bg-white sticky top-0 z-50">
