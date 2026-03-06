@@ -13,6 +13,38 @@ export const metadata: Metadata = {
 
 const posts = [
   {
+    slug: 'freelance-invoice-template',
+    title: 'Free Freelance Invoice Template (Word, PDF, Google Docs) + How to Get Paid Faster',
+    description: 'A complete freelance invoice template with every field explained — plus why automation gets you paid 3x faster than sending static Word or PDF invoices.',
+    date: 'March 2026',
+    readTime: '9 min read',
+    category: 'Getting Paid',
+  },
+  {
+    slug: 'how-to-ask-for-payment-professionally',
+    title: 'How to Ask for Payment Professionally: Scripts + Email Templates',
+    description: 'The psychology of asking for money, 6 copy-paste scripts from first invoice send to final notice, and how Chase automates the entire payment request sequence.',
+    date: 'March 2026',
+    readTime: '8 min read',
+    category: 'Getting Paid',
+  },
+  {
+    slug: 'invoice-payment-terms',
+    title: 'Invoice Payment Terms: Net 30 vs Net 15 vs Due on Receipt (Which Gets You Paid Fastest?)',
+    description: 'All common invoice payment terms explained — Net 7, Net 15, Net 30, Net 60, Due on Receipt — plus data on which actually results in the fastest payment.',
+    date: 'March 2026',
+    readTime: '8 min read',
+    category: 'Getting Paid',
+  },
+  {
+    slug: 'late-payment-email',
+    title: 'Late Payment Email: 8 Templates That Actually Work (Copy & Paste)',
+    description: '8 escalating late payment email templates from a friendly nudge to a final formal demand — with timing guidance and tone tips for every stage.',
+    date: 'March 2026',
+    readTime: '9 min read',
+    category: 'Email Templates',
+  },
+  {
     slug: 'best-invoicing-app-freelancers',
     title: 'Best Invoicing App for Freelancers in 2026 (Honest Comparison)',
     description: 'FreshBooks vs Wave vs Invoice Ninja vs HoneyBook vs Chase. The honest breakdown of which invoicing app actually gets freelancers paid faster.',
