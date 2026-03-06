@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/intel-update",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/capture-cron",
-      "schedule": "0 0 * * *"
+      "path": "/api/cron/chase",
+      "schedule": "0 8 * * *"
     }
   ]
 }

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 44" fill="none">
+  <!-- Icon mark: indigo rounded square with C -->
+  <rect width="44" height="44" rx="10" fill="#4f46e5"/>
+  <path d="M27.5 14 A9 9 0 1 0 27.5 30" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/>
+
+  <!-- Wordmark: "Chase" in white (for dark backgrounds) -->
+  <text x="56" y="30.5"
+    font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+    font-size="24"
+    font-weight="700"
+    fill="white"
+    letter-spacing="-0.5">Chase</text>
+</svg>
